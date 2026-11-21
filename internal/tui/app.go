@@ -2,7 +2,10 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -70,7 +73,16 @@ func Run(st *store.Store, hub *hf.Client, prefs *llama.Prefs, km *keys.Map) erro
 	if len(km.Problems) > 0 {
 		a.complain("%s", km.Problems[0])
 	}
-	_, err := tea.NewProgram(a, tea.WithAltScreen()).Run()
+	p := tea.NewProgram(a, tea.WithAltScreen())
+
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	go func() {
+		<-hup
+		p.Quit()
+	}()
+	_, err := p.Run()
+	signal.Stop(hup)
 	for _, s := range a.servers {
 		s.Stop()
 	}
