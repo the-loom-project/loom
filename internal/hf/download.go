@@ -47,7 +47,7 @@ func (c *Client) fetch(ctx context.Context, dir, repo, sha string, f File, prog 
 	blob := filepath.Join(dir, "blobs", f.BlobID)
 	link := filepath.Join(dir, "snapshots", sha, filepath.FromSlash(f.Path))
 	if st, err := os.Stat(blob); err == nil && st.Size() == f.Size {
-		prog.add(f.Size)
+		prog.skip(f.Size)
 		return linkSnapshot(blob, link)
 	}
 	if err := os.MkdirAll(filepath.Dir(blob), 0o755); err != nil {
@@ -91,7 +91,7 @@ func (c *Client) fetch(ctx context.Context, dir, repo, sha string, f File, prog 
 	if err != nil {
 		return err
 	}
-	prog.add(have)
+	prog.skip(have)
 	_, err = io.Copy(out, io.TeeReader(resp.Body, prog))
 	if cerr := out.Close(); err == nil {
 		err = cerr
@@ -149,7 +149,7 @@ type meter struct {
 	speed  float64
 }
 
-func (m *meter) add(n int64) { m.done += n; m.lastN += n }
+func (m *meter) skip(n int64) { m.done += n }
 
 func (m *meter) Write(p []byte) (int, error) {
 	m.done += int64(len(p))
