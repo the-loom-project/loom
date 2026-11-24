@@ -156,6 +156,13 @@ func scanRepo(repo, dir string) []Model {
 			m.files = append(append([]string{}, files...), mmproj)
 		}
 		m.Info, m.Err = gguf.Read(files[0])
+		if m.Info != nil {
+			for _, shard := range files[1:] {
+				if s, err := gguf.Read(shard); err == nil {
+					m.Info.Params += s.Params
+				}
+			}
+		}
 		out = append(out, m)
 	}
 	return out
