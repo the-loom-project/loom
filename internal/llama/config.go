@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"loom/internal/gguf"
 	"loom/internal/hw"
 	"loom/internal/store"
 )
@@ -77,6 +78,9 @@ func (c Config) Fix(e Env) Config {
 	}
 	if !known {
 		c.Device = ""
+	}
+	if e.Model.Kind() == gguf.Embedding {
+		c.Mode = Serve
 	}
 	if e.Model.MMProj == "" {
 		c.Vision = false
