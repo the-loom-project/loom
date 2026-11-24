@@ -195,6 +195,7 @@ func (s *Store) Remove(m Model) error {
 			os.Remove(blob)
 		}
 	}
+	prune(dir)
 	return err
 }
 
@@ -239,6 +240,19 @@ func dirSize(dir string) int64 {
 		return nil
 	})
 	return n
+}
+
+func prune(dir string) {
+	blobs := filepath.Join(dir, "blobs")
+	entries, _ := os.ReadDir(blobs)
+	for _, e := range entries {
+		p := filepath.Join(blobs, e.Name())
+		if _, err := os.Stat(p); err != nil {
+			os.Remove(p)
+		} else if e.IsDir() {
+			os.Remove(p)
+		}
+	}
 }
 
 func Find(models []Model, q string) (Model, []Model) {
