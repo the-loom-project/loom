@@ -285,5 +285,3 @@ func SettingByID(id string) (Setting, bool) {
 	}
 	return Setting{}, false
 }
-
-func (s Setting) isText() bool { return s.Text }
