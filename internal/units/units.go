@@ -7,6 +7,8 @@ import (
 
 func Bytes(n int64) string {
 	switch {
+	case n >= 1e11:
+		return fmt.Sprintf("%.0f GB", float64(n)/1e9)
 	case n >= 1e9:
 		return fmt.Sprintf("%.1f GB", float64(n)/1e9)
 	case n >= 1e6:
