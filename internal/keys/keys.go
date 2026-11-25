@@ -152,7 +152,7 @@ func Pretty(k string) string {
 func (m *Map) Dump() string {
 	var b strings.Builder
 	b.WriteString("# loom key bindings: action = key, key, …   (use \"space\" for the space bar)\n")
-	b.WriteString("# Save as " + Path() + "\n")
+	fmt.Fprintf(&b, "# Save as %s\n", Path())
 	group := ""
 	for _, a := range Actions {
 		if a.Group != group {

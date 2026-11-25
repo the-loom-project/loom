@@ -78,9 +78,9 @@ func section(title string, rows []helpRow) string {
 
 func examples(lines ...string) string {
 	var b strings.Builder
-	b.WriteString("\n" + hHead.Render("Examples") + "\n")
+	fmt.Fprint(&b, "\n", hHead.Render("Examples"), "\n")
 	for _, l := range lines {
-		b.WriteString("  " + colorUsage(l) + "\n")
+		fmt.Fprint(&b, "  ", colorUsage(l), "\n")
 	}
 	return b.String()
 }
@@ -101,8 +101,8 @@ func helpText() string {
 		{"loom keys", "print the key bindings, to customize them"},
 		{"loom completion fish", "print the fish completions"},
 	}))
-	b.WriteString("\n" + hDim.Render("loom help <command> (or loom <command> --help) shows a command's options.") + "\n")
-	b.WriteString(hDim.Render("In the interface, press ? for the keys.") + "\n")
+	fmt.Fprint(&b, "\n", hDim.Render("loom help <command> (or loom <command> --help) shows a command's options."), "\n")
+	fmt.Fprintln(&b, hDim.Render("In the interface, press ? for the keys."))
 	return b.String()
 }
 
@@ -111,7 +111,7 @@ func helpFor(cmd string) (string, bool) {
 	switch cmd {
 	case "run":
 		b.WriteString(head("loom run <model> [options] [-- <flags>]", "Start a model. loom prints the command it builds, explains every flag, then runs it."))
-		b.WriteString(hDim.Render("<model> is a name from `loom ls` (a unique part is enough), or owner/repo:QUANT, which is downloaded first.") + "\n")
+		fmt.Fprintln(&b, hDim.Render("<model> is a name from `loom ls` (a unique part is enough), or owner/repo:QUANT, which is downloaded first."))
 		b.WriteString(section("Options", []helpRow{
 			{"--chat", "chat in this terminal instead of starting a server"},
 			{"--ctx <tokens>", "context window (default: auto)"},
@@ -129,12 +129,12 @@ func helpFor(cmd string) (string, bool) {
 			"loom run qwen3-coder-30b --set experts=cpu --set kv=q8_0",
 			"loom run phi4 --chat -- --temp 0.3",
 		))
-		b.WriteString("\n" + hDim.Render("Your last choices for a model are remembered; options here override them for this run.") + "\n")
+		fmt.Fprint(&b, "\n", hDim.Render("Your last choices for a model are remembered; options here override them for this run."), "\n")
 	case "pull":
 		b.WriteString(head("loom pull <owner/repo[:QUANT]>", "Download a model from Hugging Face into loom's model folder."))
-		b.WriteString(hDim.Render("Without :QUANT it lists the quantizations, what fits your GPU, and the one loom recommends.") + "\n")
+		fmt.Fprintln(&b, hDim.Render("Without :QUANT it lists the quantizations, what fits your GPU, and the one loom recommends."))
 		b.WriteString(examples("loom pull unsloth/Qwen3-8B-GGUF", "loom pull unsloth/Qwen3-8B-GGUF:Q4_K_M"))
-		b.WriteString("\n" + hDim.Render("Gated models need a token: set HF_TOKEN, or log in with `hf auth login`. Interrupted downloads resume.") + "\n")
+		fmt.Fprint(&b, "\n", hDim.Render("Gated models need a token: set HF_TOKEN, or log in with `hf auth login`. Interrupted downloads resume."), "\n")
 	case "ls":
 		b.WriteString(head("loom ls", "List downloaded models with size, type, maximum context and whether they fit your GPU."))
 	case "rm":
@@ -143,7 +143,7 @@ func helpFor(cmd string) (string, bool) {
 	case "keys":
 		b.WriteString(head("loom keys", "Print every key binding in keys.conf format."))
 		b.WriteString(examples("loom keys > ~/.config/loom/keys.conf"))
-		b.WriteString("\n" + hDim.Render("Edit a line to rebind (filter = f, ctrl+o), then restart loom. Missing lines keep their defaults.") + "\n")
+		fmt.Fprint(&b, "\n", hDim.Render("Edit a line to rebind (filter = f, ctrl+o), then restart loom. Missing lines keep their defaults."), "\n")
 	case "completion":
 		b.WriteString(head("loom completion fish", "Print the fish completions. Model names complete from what you have downloaded."))
 		b.WriteString(examples("loom completion fish > ~/.config/fish/completions/loom.fish"))
