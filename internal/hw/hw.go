@@ -83,15 +83,17 @@ func Detect() Hardware {
 }
 
 func availableRAM() int64 {
-	f, err := os.Open("/proc/meminfo")
+	data, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return 0
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		if rest, ok := strings.CutPrefix(sc.Text(), "MemAvailable:"); ok {
-			kb, _ := strconv.ParseInt(strings.Fields(rest)[0], 10, 64)
+	for _, line := range strings.Split(string(data), "\n") {
+		if rest, ok := strings.CutPrefix(line, "MemAvailable:"); ok {
+			fields := strings.Fields(rest)
+			if len(fields) == 0 {
+				return 0
+			}
+			kb, _ := strconv.ParseInt(fields[0], 10, 64)
 			return kb << 10
 		}
 	}

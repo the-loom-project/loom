@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -68,14 +67,13 @@ func Load() *Map {
 		m.bind[a.ID] = a.Default
 		known[a.ID] = true
 	}
-	f, err := os.Open(Path())
+	data, err := os.ReadFile(Path())
 	if err != nil {
 		return m
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for n := 1; sc.Scan(); n++ {
-		line := strings.TrimSpace(sc.Text())
+	for i, line := range strings.Split(string(data), "\n") {
+		n := i + 1
+		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}

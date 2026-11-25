@@ -87,6 +87,11 @@ func Start(id int, e Env, cfg Config, cmd Command, port int) (*Instance, error) 
 			}
 			inst.mu.Unlock()
 		}
+		if err := sc.Err(); err != nil {
+			inst.mu.Lock()
+			inst.log = append(inst.log, "loom stopped reading the log: "+err.Error())
+			inst.mu.Unlock()
+		}
 	}()
 	go func() {
 		err := c.Wait()
