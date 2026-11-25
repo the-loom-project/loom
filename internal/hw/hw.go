@@ -3,7 +3,6 @@ package hw
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -80,7 +79,6 @@ func Detect() Hardware {
 			h.Devices = append(h.Devices, Device{ID: m[1], Name: m[2], Total: total << 20, Free: free << 20})
 		}
 	}
-	fmt.Fprintf(os.Stderr, "detected %d devices\n", len(h.Devices))
 	return h
 }
 
