@@ -70,7 +70,7 @@ func statusError(resp *http.Response) error {
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		return fmt.Errorf("gated or private: accept its terms on huggingface.co and set HF_TOKEN")
 	}
-	return fmt.Errorf("Hugging Face answered %s", resp.Status)
+	return fmt.Errorf("the Hub answered %s", resp.Status)
 }
 
 type Summary struct {
