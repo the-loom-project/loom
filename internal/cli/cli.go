@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	osexec "os/exec"
+	"os/signal"
 	"strings"
 	"time"
 
@@ -327,6 +328,7 @@ func run(st *store.Store, hub *hf.Client, prefs *llama.Prefs, args []string) err
 }
 
 func foreground(c llama.Command) error {
+	signal.Ignore(os.Interrupt)
 	err := c.Exec().Run()
 	var exit *osexec.ExitError
 	if errors.As(err, &exit) {
