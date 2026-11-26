@@ -124,7 +124,7 @@ func (r *repoView) body(a *App, w, h int) []string {
 	facts = append(facts, units.Count(repo.Downloads)+" downloads", units.Count(repo.Likes)+" likes")
 	lines := []string{"", " " + sDim.Render(strings.Join(facts, " · "))}
 	if repo.Gated {
-		lines = append(lines, " "+sWarn.Render("Gated: accept the terms on huggingface.co and set HF_TOKEN, or the download is refused."))
+		lines = append(lines, " "+sWarn.Render("Gated: accept the terms on huggingface.co and set HF_TOKEN or run hf auth login, or the download is refused."))
 	}
 	if mm := repo.MMProj(); mm != nil {
 		lines = append(lines, " "+sDim.Render(fmt.Sprintf("Includes a vision adapter (%s) that downloads with any quant.", units.Bytes(mm.Size))))

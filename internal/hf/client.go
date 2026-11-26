@@ -45,6 +45,18 @@ func findToken() string {
 	return ""
 }
 
+type gate bool
+
+func (g *gate) UnmarshalJSON(b []byte) error {
+	switch strings.TrimSpace(string(b)) {
+	case "", "false", "null", `""`:
+		*g = false
+	default:
+		*g = true
+	}
+	return nil
+}
+
 func (c *Client) get(ctx context.Context, u string, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
@@ -83,6 +95,7 @@ type Summary struct {
 	Updated   time.Time `json:"lastModified"`
 	Tags      []string  `json:"tags"`
 	Pipeline  string    `json:"pipeline_tag"`
+	Gated     gate      `json:"gated"`
 	GGUF      struct {
 		Params  uint64 `json:"total"`
 		Arch    string `json:"architecture"`
@@ -92,7 +105,7 @@ type Summary struct {
 
 func (c *Client) Search(ctx context.Context, query, task string, everything bool) ([]Summary, error) {
 	q := url.Values{"limit": {"40"},
-		"expand[]": {"downloads", "likes", "lastModified", "tags", "pipeline_tag", "gguf"}}
+		"expand[]": {"downloads", "likes", "lastModified", "tags", "pipeline_tag", "gated", "gguf"}}
 	if !everything {
 		q.Set("filter", "gguf")
 	}
@@ -134,13 +147,13 @@ type Repo struct {
 
 func (c *Client) Repo(ctx context.Context, id string) (*Repo, error) {
 	var raw struct {
-		ID        string          `json:"id"`
-		SHA       string          `json:"sha"`
-		Downloads int             `json:"downloads"`
-		Likes     int             `json:"likes"`
-		Gated     json.RawMessage `json:"gated"`
-		Tags      []string        `json:"tags"`
-		Pipeline  string          `json:"pipeline_tag"`
+		ID        string   `json:"id"`
+		SHA       string   `json:"sha"`
+		Downloads int      `json:"downloads"`
+		Likes     int      `json:"likes"`
+		Gated     gate     `json:"gated"`
+		Tags      []string `json:"tags"`
+		Pipeline  string   `json:"pipeline_tag"`
 		GGUF      struct {
 			Params  uint64 `json:"total"`
 			Arch    string `json:"architecture"`
@@ -158,7 +171,7 @@ func (c *Client) Repo(ctx context.Context, id string) (*Repo, error) {
 	if err := c.get(ctx, base+"/api/models/"+id+"?blobs=true", &raw); err != nil {
 		return nil, fmt.Errorf("%s: %w", id, err)
 	}
-	r := &Repo{ID: raw.ID, SHA: raw.SHA, Downloads: raw.Downloads, Likes: raw.Likes, Tags: raw.Tags, Pipeline: raw.Pipeline, Params: raw.GGUF.Params, Arch: raw.GGUF.Arch, Context: raw.GGUF.Context, Gated: string(raw.Gated) != "false"}
+	r := &Repo{ID: raw.ID, SHA: raw.SHA, Downloads: raw.Downloads, Likes: raw.Likes, Tags: raw.Tags, Pipeline: raw.Pipeline, Params: raw.GGUF.Params, Arch: raw.GGUF.Arch, Context: raw.GGUF.Context, Gated: bool(raw.Gated)}
 	for _, s := range raw.Siblings {
 		f := File{Path: s.Name, Size: s.Size, BlobID: s.BlobID}
 		if s.LFS != nil {

@@ -248,7 +248,7 @@ func (d *discover) view(a *App, w, h int) []string {
 		column{title: "DOWNLOADS", w: 9, right: true},
 		column{title: "LIKES", w: 6, right: true},
 		column{title: "UPDATED", w: 9, min: 90},
-		column{title: "FEATURES", w: 12, min: 100},
+		column{title: "FEATURES", w: 18, min: 100},
 	)
 	lines = append(lines, tb.header())
 	from, to := d.sc.window(len(d.results), max(1, h-len(lines)))
@@ -311,6 +311,9 @@ func features(r hf.Summary) []seg {
 	}
 	if hasTag(r, "moe") || hasTag(r, "mixture-of-experts") {
 		add(t("MoE", sWarn))
+	}
+	if r.Gated {
+		add(t("gated", sWarn))
 	}
 	if r.Pipeline == "feature-extraction" || r.Pipeline == "sentence-similarity" || hasTag(r, "sentence-transformers") {
 		add(t("embedding", sFlag))
