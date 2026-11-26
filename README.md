@@ -1,4 +1,9 @@
-# loom
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/svg/logo-on-dark.svg">
+    <img src="assets/svg/logo-on-light.svg" alt="loom" width="360">
+  </picture>
+</p>
 
 ![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white)
 ![llama.cpp](https://img.shields.io/badge/runs%20on-llama.cpp-8A63D2)
