@@ -30,11 +30,14 @@ func findToken() string {
 	if t := os.Getenv("HF_TOKEN"); t != "" {
 		return t
 	}
-	home, _ := os.UserHomeDir()
-	for _, p := range []string{
-		filepath.Join(os.Getenv("HF_HOME"), "token"),
-		filepath.Join(home, ".cache", "huggingface", "token"),
-	} {
+	var paths []string
+	if dir := os.Getenv("HF_HOME"); dir != "" {
+		paths = append(paths, filepath.Join(dir, "token"))
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		paths = append(paths, filepath.Join(home, ".cache", "huggingface", "token"))
+	}
+	for _, p := range paths {
 		if b, err := os.ReadFile(p); err == nil {
 			return strings.TrimSpace(string(b))
 		}
