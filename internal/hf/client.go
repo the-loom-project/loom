@@ -26,6 +26,8 @@ func New() *Client {
 	return &Client{http: &http.Client{}, token: findToken()}
 }
 
+func (c *Client) HasToken() bool { return c.token != "" }
+
 func findToken() string {
 	if t := os.Getenv("HF_TOKEN"); t != "" {
 		return t

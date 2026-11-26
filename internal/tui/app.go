@@ -23,9 +23,10 @@ const (
 	tabLibrary tabID = iota
 	tabDiscover
 	tabActivity
+	tabDoctor
 )
 
-var tabNames = [...]string{"Library", "Discover", "Activity"}
+var tabNames = [...]string{"Library", "Discover", "Activity", "Doctor"}
 
 type page interface {
 	update(a *App, msg tea.Msg) tea.Cmd
@@ -51,6 +52,7 @@ type App struct {
 	lib    *library
 	disc   *discover
 	act    *activity
+	doc    *doctor
 	popups []popup
 
 	downloads []*download
@@ -69,7 +71,7 @@ type status struct {
 
 func Run(st *store.Store, hub *hf.Client, prefs *llama.Prefs, km *keys.Map) error {
 	a := &App{st: st, hub: hub, prefs: prefs, keys: km, nextID: 1}
-	a.lib, a.disc, a.act = newLibrary(), newDiscover(), newActivity()
+	a.lib, a.disc, a.act, a.doc = newLibrary(), newDiscover(), newActivity(), &doctor{}
 	if len(km.Problems) > 0 {
 		a.complain("%s", km.Problems[0])
 	}
@@ -105,6 +107,7 @@ func (a *App) Init() tea.Cmd {
 	return tea.Batch(
 		func() tea.Msg { return hwMsg(hw.Detect()) },
 		a.rescan(),
+		probeEnv(a.st),
 		a.disc.init(a),
 		tea.Tick(250*time.Millisecond, func(t time.Time) tea.Msg { return tickMsg(t) }),
 	)
@@ -149,6 +152,8 @@ func (a *App) page() page {
 		return a.lib
 	case tabDiscover:
 		return a.disc
+	case tabDoctor:
+		return a.doc
 	}
 	return a.act
 }
@@ -183,10 +188,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		p := a.page()
 		switch {
 		case a.is(key, "next-view") && !(p.typing() && key.String() != "tab"):
-			a.tab = (a.tab + 1) % 3
+			a.tab = (a.tab + 1) % tabID(len(tabNames))
 			return a, nil
 		case a.is(key, "prev-view") && !(p.typing() && key.String() != "shift+tab"):
-			a.tab = (a.tab + 2) % 3
+			a.tab = (a.tab + tabID(len(tabNames)) - 1) % tabID(len(tabNames))
 			return a, nil
 		case p.typing():
 		case a.is(key, "quit"):
@@ -203,10 +208,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case a.is(key, "view-activity"):
 			a.tab = tabActivity
 			return a, nil
+		case a.is(key, "view-doctor"):
+			a.tab = tabDoctor
+			return a, nil
 		}
 		return a, p.update(a, msg)
 	}
-	return a, tea.Batch(a.lib.update(a, msg), a.disc.update(a, msg), a.act.update(a, msg))
+	return a, tea.Batch(a.lib.update(a, msg), a.disc.update(a, msg), a.act.update(a, msg), a.doc.update(a, msg))
 }
 
 func (a *App) updatePopups(msg tea.Msg) tea.Cmd {
@@ -227,7 +235,7 @@ func (a *App) updatePopups(msg tea.Msg) tea.Cmd {
 			cmds = append(cmds, c)
 		}
 	}
-	cmds = append(cmds, a.lib.update(a, msg), a.disc.update(a, msg), a.act.update(a, msg))
+	cmds = append(cmds, a.lib.update(a, msg), a.disc.update(a, msg), a.act.update(a, msg), a.doc.update(a, msg))
 	return tea.Batch(cmds...)
 }
 
@@ -302,7 +310,7 @@ func (a *App) header() string {
 		}
 	}
 	left := " " + sAccent.Bold(true).Render("loom") + "   " + strings.Join(tabs, "   ")
-	return between(left, a.hardwareLine()+" ", a.w)
+	return left
 }
 
 func (a *App) tabRule() string {
@@ -327,25 +335,6 @@ func (a *App) tabRule() string {
 	}
 	end = min(end, a.w)
 	return sEdge.Render(strings.Repeat("─", start)) + sAccent.Render(strings.Repeat("━", end-start)) + sEdge.Render(strings.Repeat("─", max(0, a.w-end)))
-}
-
-func (a *App) hardwareLine() string {
-	switch {
-	case !a.hwKnown:
-		return sDim.Render("detecting hardware…")
-	case !a.hw.Installed:
-		return sBad.Render("llama.cpp not found: sudo pacman -S llama-cpp ggml-vulkan")
-	}
-	var parts []string
-	if d, ok := a.hw.Primary(); ok {
-		parts = append(parts, fmt.Sprintf("%s · %.0f GB", d.Short(), float64(d.Total)/hw.GiB))
-	} else {
-		parts = append(parts, sWarn.Render("no GPU found"))
-	}
-	if a.hw.Version != "" {
-		parts = append(parts, "llama.cpp "+a.hw.Version)
-	}
-	return sDim.Render(strings.Join(parts, " · "))
 }
 
 func (a *App) liveCount() int {

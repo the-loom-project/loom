@@ -34,17 +34,17 @@ loom help run          options of a command
 
 ## Interface
 
-Three views (`←` `→`, `tab`, or `1` `2` `3`). Everything else opens as a popup over the current view. `?` lists all keys.
+Four views, switched with `←` `→`, `tab` or `1`-`4`. `?` lists all keys.
 
-| View     | What it does                                                                                                                                                                                              |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Library  | Downloaded models with parameters, quant, size, context, type and GPU fit. `enter` configures and runs, `r` reruns with the last settings, `i` shows details, `f` filters, `/` searches.                  |
-| Discover | Searches Hugging Face with the same category and task filters as the website (`f`). Shows quants with size and GPU fit before you download. Models llama.cpp can't run are hidden, `u` shows them in red. |
-| Activity | Downloads and running servers. The bottom panel follows the selected server's log.                                                                                                                        |
+| View     | What it does                                                             |
+| -------- | ------------------------------------------------------------------------ |
+| Library  | Downloaded models with GPU fit. `enter` runs, `i` details, `/` search.   |
+| Discover | Search Hugging Face, see quant sizes and GPU fit. `u` shows unrunnable.  |
+| Activity | Downloads and running servers, with the selected server's log.           |
+| Doctor   | Health checks for llama.cpp, GPU, memory, disk and token. `r` rechecks.  |
 
-The launch sheet lists every choice in plain words next to the exact llama.cpp flags it produces, with a memory
-estimate and warnings. `y` copies the `loom run` command and `Y` copies the plain llama.cpp command, to run outside loom.
-Agent tools are off by default.
+The launch sheet shows each choice next to the llama.cpp flag it produces. `y` copies the `loom run` command, `Y` the
+plain llama.cpp one. Agent tools are off by default.
 
 ## Configuration
 

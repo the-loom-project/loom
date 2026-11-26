@@ -28,6 +28,7 @@ var Actions = []Action{
 	{"view-library", "Views", "Go to Library", []string{"1"}},
 	{"view-discover", "Views", "Go to Discover", []string{"2"}},
 	{"view-activity", "Views", "Go to Activity", []string{"3"}},
+	{"view-doctor", "Views", "Go to Doctor", []string{"4"}},
 	{"confirm", "Everywhere", "Open / confirm", []string{"enter"}},
 	{"back", "Everywhere", "Close popup / clear", []string{"esc"}},
 	{"help", "Everywhere", "Show this help", []string{"?"}},
@@ -47,6 +48,7 @@ var Actions = []Action{
 	{"details", "Activity", "Open the selected server's details", []string{"enter"}},
 	{"log-up", "Activity", "Scroll the log up", []string{"pgup", "ctrl+u"}},
 	{"log-down", "Activity", "Scroll the log down (to the end: follow)", []string{"pgdown", "ctrl+d"}},
+	{"recheck", "Doctor", "Run the checks again", []string{"r"}},
 	{"clear", "Activity", "Clear finished items", []string{"c"}},
 }
 
