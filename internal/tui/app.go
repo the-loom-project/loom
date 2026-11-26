@@ -300,7 +300,7 @@ func (a *App) header() string {
 			}
 		case tabActivity:
 			if n := a.liveCount(); n > 0 {
-				label += sGood.Render(fmt.Sprintf(" ●%d", n))
+				label += sGood.Render(fmt.Sprintf(" %d", n))
 			}
 		}
 		if tabID(i) == a.tab {
@@ -325,7 +325,7 @@ func (a *App) tabRule() string {
 			}
 		case tabActivity:
 			if n := a.liveCount(); n > 0 {
-				label += fmt.Sprintf(" ●%d", n)
+				label += fmt.Sprintf(" %d", n)
 			}
 		}
 		if tabID(i) == a.tab {
