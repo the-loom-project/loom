@@ -1,9 +1,6 @@
 package llama
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -88,41 +85,17 @@ func (c Config) Fix(e Env) Config {
 	return c
 }
 
-type Prefs struct {
-	path string
-	byID map[string]Config
-}
-
-func LoadPrefs() *Prefs {
-	dir, _ := os.UserConfigDir()
-	p := &Prefs{path: filepath.Join(dir, "loom", "settings.json"), byID: map[string]Config{}}
-	if b, err := os.ReadFile(p.path); err == nil {
-		json.Unmarshal(b, &p.byID)
-	}
-	return p
-}
-
-func (p *Prefs) Get(e Env) Config {
-	if c, ok := p.byID[e.Model.Ref]; ok {
-		return c.Fix(e)
-	}
-	return Defaults(e).Fix(e)
-}
-
-func (p *Prefs) Put(ref string, c Config) {
-	p.byID[ref] = c
-	if b, err := json.MarshalIndent(p.byID, "", "  "); err == nil {
-		os.MkdirAll(filepath.Dir(p.path), 0o755)
-		os.WriteFile(p.path, b, 0o644)
-	}
-}
-
 func itoa(n int) string { return strconv.Itoa(n) }
 
-func (c Config) LoomArgs(e Env) []string {
-	d := Defaults(e).Fix(e)
+// LoomArgs is the `loom run` command that reproduces c, written as changes
+// from base: the defaults, or the named profile when profile is set.
+func (c Config) LoomArgs(e Env, base Config, profile string) []string {
+	d := base
 	short := map[string]string{"mode": "--chat", "tools": "--tools", "listen": "--lan", "offload": "--cpu", "context": "--ctx", "port": "--port"}
 	out := []string{"loom", "run", shellWord(e.Model.Ref)}
+	if profile != "" {
+		out = append(out, "--profile", profile)
+	}
 	for _, st := range allSettings {
 		if st.ID == "extra" || st.Get(c) == st.Get(d) || !st.IsVisible(e, c) {
 			continue
@@ -131,7 +104,7 @@ func (c Config) LoomArgs(e Env) []string {
 		switch {
 		case st.ID == "mode" && v == string(Chat), st.ID == "tools" && v == "true", st.ID == "listen" && v == "network", st.ID == "offload" && v == "cpu":
 			out = append(out, short[st.ID])
-		case st.ID == "context" || st.ID == "port":
+		case (st.ID == "context" || st.ID == "port") && v != "0":
 			out = append(out, short[st.ID], v)
 		default:
 			out = append(out, "--set", st.ID+"="+v)

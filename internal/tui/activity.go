@@ -184,7 +184,7 @@ func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
 			v.remove(a, cur)
 		case a.is(msg, "copy"), a.is(msg, "copy-raw"):
 			if cur.srv != nil {
-				a.copyCommand(llama.Env{Model: cur.srv.Model, HW: a.hw}, cur.srv.Config, a.is(msg, "copy-raw"))
+				a.copyCommand(llama.Env{Model: cur.srv.Model, HW: a.hw}, cur.srv.Config, "", a.is(msg, "copy-raw"))
 			}
 		}
 	}

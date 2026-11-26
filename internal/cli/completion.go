@@ -16,7 +16,7 @@ func completion(args []string) error {
 	return nil
 }
 
-func complete(st *store.Store, args []string) {
+func complete(st *store.Store, profiles *llama.Profiles, args []string) {
 	if len(args) == 0 {
 		return
 	}
@@ -25,6 +25,16 @@ func complete(st *store.Store, args []string) {
 		models, _ := st.Scan()
 		for _, m := range models {
 			fmt.Printf("%s\t%s, %s\n", m.Ref, units.Bytes(m.Size), kindOf(m))
+		}
+	case "profiles":
+		if len(args) < 2 {
+			return
+		}
+		models, _ := st.Scan()
+		if m, err := resolve(models, args[1]); err == nil {
+			for _, name := range profiles.Names(m.Ref) {
+				fmt.Println(name)
+			}
 		}
 	case "settings":
 		for _, id := range settingIDs {
@@ -57,6 +67,7 @@ complete -c loom -n $top -a help       -d 'Show help'
 
 complete -c loom -n '__fish_seen_subcommand_from run rm; and __fish_is_nth_token 2' -a '(loom complete models)'
 
+complete -c loom -n '__fish_seen_subcommand_from run' -l profile -d 'Start from a saved profile' -x -a '(loom complete profiles (commandline -opc)[3])'
 complete -c loom -n '__fish_seen_subcommand_from run' -l chat  -d 'Chat in this terminal'
 complete -c loom -n '__fish_seen_subcommand_from run' -l ctx   -d 'Context window in tokens' -x
 complete -c loom -n '__fish_seen_subcommand_from run' -l port  -d 'Server port' -x

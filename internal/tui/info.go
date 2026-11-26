@@ -38,7 +38,7 @@ func (v *infoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		v.sc.move(1, 100)
 	case a.is(key, "copy"), a.is(key, "copy-raw"):
 		env := a.env(v.model)
-		a.copyCommand(env, a.prefs.Get(env), a.is(key, "copy-raw"))
+		a.copyCommand(env, a.profiles.Get(env), a.profiles.LastProfile(env.Model.Ref), a.is(key, "copy-raw"))
 	case a.is(key, "confirm"):
 		m := v.model
 		return nil, a.openSheet(m, false)
@@ -49,7 +49,7 @@ func (v *infoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 func (v *infoView) body(a *App, w, h int) []string {
 	m := v.model
 	env := a.env(m)
-	cfg := a.prefs.Get(env)
+	cfg := a.profiles.Get(env)
 	mem := llama.Estimate(env, cfg)
 
 	row := func(label, value string) string { return " " + sDim.Render(fit(label, 14)) + value }

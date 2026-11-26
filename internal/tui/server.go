@@ -42,7 +42,7 @@ func (v *serverView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 			openBrowser(v.inst.URL())
 		}
 	case a.is(key, "copy"), a.is(key, "copy-raw"):
-		a.copyCommand(env, v.inst.Config, a.is(key, "copy-raw"))
+		a.copyCommand(env, v.inst.Config, "", a.is(key, "copy-raw"))
 	case a.is(key, "stop"):
 		inst := v.inst
 		if inst.Alive() {

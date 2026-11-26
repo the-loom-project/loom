@@ -24,9 +24,10 @@ const (
 	tabDiscover
 	tabActivity
 	tabDoctor
+	tabProfiles
 )
 
-var tabNames = [...]string{"Library", "Discover", "Activity", "Doctor"}
+var tabNames = [...]string{"Library", "Discover", "Activity", "Doctor", "Profiles"}
 
 type page interface {
 	update(a *App, msg tea.Msg) tea.Cmd
@@ -36,10 +37,10 @@ type page interface {
 }
 
 type App struct {
-	st    *store.Store
-	hub   *hf.Client
-	prefs *llama.Prefs
-	keys  *keys.Map
+	st       *store.Store
+	hub      *hf.Client
+	profiles *llama.Profiles
+	keys     *keys.Map
 
 	hw      hw.Hardware
 	hwKnown bool
@@ -53,6 +54,7 @@ type App struct {
 	disc   *discover
 	act    *activity
 	doc    *doctor
+	prof   *profilesView
 	popups []popup
 
 	downloads []*download
@@ -69,9 +71,10 @@ type status struct {
 	at   time.Time
 }
 
-func Run(st *store.Store, hub *hf.Client, prefs *llama.Prefs, km *keys.Map) error {
-	a := &App{st: st, hub: hub, prefs: prefs, keys: km, nextID: 1}
+func Run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, km *keys.Map) error {
+	a := &App{st: st, hub: hub, profiles: profiles, keys: km, nextID: 1}
 	a.lib, a.disc, a.act, a.doc = newLibrary(), newDiscover(), newActivity(), &doctor{}
+	a.prof = &profilesView{}
 	if len(km.Problems) > 0 {
 		a.complain("%s", km.Problems[0])
 	}
@@ -154,6 +157,8 @@ func (a *App) page() page {
 		return a.disc
 	case tabDoctor:
 		return a.doc
+	case tabProfiles:
+		return a.prof
 	}
 	return a.act
 }
@@ -210,6 +215,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		case a.is(key, "view-doctor"):
 			a.tab = tabDoctor
+			return a, nil
+		case a.is(key, "view-profiles"):
+			a.tab = tabProfiles
 			return a, nil
 		}
 		return a, p.update(a, msg)

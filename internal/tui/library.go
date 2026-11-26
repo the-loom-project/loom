@@ -164,7 +164,7 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 		return a.openSheet(*e.model, true)
 	case a.is(key, "copy"), a.is(key, "copy-raw"):
 		env := a.env(*e.model)
-		a.copyCommand(env, a.prefs.Get(env), a.is(key, "copy-raw"))
+		a.copyCommand(env, a.profiles.Get(env), a.profiles.LastProfile(env.Model.Ref), a.is(key, "copy-raw"))
 	}
 	return nil
 }
@@ -297,8 +297,12 @@ func (a *App) openSheet(m store.Model, runNow bool) tea.Cmd {
 	return nil
 }
 
-func (a *App) copyCommand(e llama.Env, c llama.Config, raw bool) {
-	text, what := llama.Shell(c.LoomArgs(e)), "loom command"
+func (a *App) copyCommand(e llama.Env, c llama.Config, profile string, raw bool) {
+	base := llama.Defaults(e).Fix(e)
+	if p, ok := a.profiles.Profile(e.Model.Ref, profile); ok {
+		base = p.Fix(e)
+	}
+	text, what := llama.Shell(c.LoomArgs(e, base, profile)), "loom command"
 	if raw {
 		text, what = llama.Build(e, c.Fix(e)).Line(), "llama.cpp command"
 	}

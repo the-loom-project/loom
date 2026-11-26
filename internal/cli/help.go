@@ -113,6 +113,7 @@ func helpFor(cmd string) (string, bool) {
 		b.WriteString(head("loom run <model> [options] [-- <flags>]", "Start a model. loom prints the command it builds, explains every flag, then runs it."))
 		fmt.Fprintln(&b, hDim.Render("<model> is a name from `loom ls` (a unique part is enough), or owner/repo:QUANT, which is downloaded first."))
 		b.WriteString(section("Options", []helpRow{
+			{"--profile <name>", "start from a saved profile instead of the last settings"},
 			{"--chat", "chat in this terminal instead of starting a server"},
 			{"--ctx <tokens>", "context window (default: auto)"},
 			{"--port <n>", "server port (default: the last one used, else 8080)"},
@@ -126,10 +127,11 @@ func helpFor(cmd string) (string, bool) {
 		b.WriteString(examples(
 			"loom run qwen3-8b",
 			"loom run qwen3-8b --ctx 16384 --lan",
+			"loom run qwen3-8b --profile fast",
 			"loom run qwen3-coder-30b --set experts=cpu --set kv=q8_0",
 			"loom run phi4 --chat -- --temp 0.3",
 		))
-		fmt.Fprint(&b, "\n", hDim.Render("Your last choices for a model are remembered; options here override them for this run."), "\n")
+		fmt.Fprint(&b, "\n", hDim.Render("Your last choices for a model are remembered, and the launch sheet can save them as named profiles. Options here override either for this run."), "\n")
 	case "pull":
 		b.WriteString(head("loom pull <owner/repo[:QUANT]>", "Download a model from Hugging Face into loom's model folder."))
 		fmt.Fprintln(&b, hDim.Render("Without :QUANT it lists the quantizations, what fits your GPU, and the one loom recommends."))

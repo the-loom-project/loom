@@ -24,7 +24,7 @@ import (
 )
 
 func Main(args []string) int {
-	st, hub, prefs, km := store.Open(), hf.New(), llama.LoadPrefs(), keys.Load()
+	st, hub, profiles, km := store.Open(), hf.New(), llama.LoadProfiles(), keys.Load()
 	var err error
 	cmd := ""
 	if len(args) > 0 {
@@ -36,9 +36,9 @@ func Main(args []string) int {
 	}
 	switch cmd {
 	case "":
-		err = tui.Run(st, hub, prefs, km)
+		err = tui.Run(st, hub, profiles, km)
 	case "run":
-		err = run(st, hub, prefs, args)
+		err = run(st, hub, profiles, args)
 	case "pull":
 		err = pull(st, hub, args)
 	case "ls", "list":
@@ -50,7 +50,7 @@ func Main(args []string) int {
 	case "completion":
 		err = completion(args)
 	case "complete":
-		complete(st, args)
+		complete(st, profiles, args)
 	case "help", "-h", "--help":
 		if page, ok := helpFor(strings.Join(args, "")); ok {
 			fmt.Print(page)
@@ -240,7 +240,7 @@ func printQuants(id string, quants []hf.Quant, rec int, h hw.Hardware) {
 	fmt.Println()
 }
 
-func run(st *store.Store, hub *hf.Client, prefs *llama.Prefs, args []string) error {
+func run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, args []string) error {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	chat := fs.Bool("chat", false, "")
@@ -249,6 +249,7 @@ func run(st *store.Store, hub *hf.Client, prefs *llama.Prefs, args []string) err
 	cpu := fs.Bool("cpu", false, "")
 	ctx := fs.Int("ctx", 0, "")
 	port := fs.Int("port", 0, "")
+	profile := fs.String("profile", "", "")
 	var sets setFlags
 	fs.Var(&sets, "set", "")
 
@@ -275,7 +276,14 @@ func run(st *store.Store, hub *hf.Client, prefs *llama.Prefs, args []string) err
 		return fmt.Errorf("llama.cpp isn't installed: sudo pacman -S llama-cpp ggml-vulkan")
 	}
 	env := llama.Env{Model: m, HW: h}
-	cfg := prefs.Get(env)
+	cfg := profiles.Get(env)
+	if *profile != "" {
+		saved, ok := profiles.Profile(m.Ref, *profile)
+		if !ok {
+			return fmt.Errorf("%s has no profile %q (saved: %s)", m.Ref, *profile, strings.Join(profiles.Names(m.Ref), ", "))
+		}
+		cfg = saved
+	}
 	if *chat {
 		cfg.Mode = llama.Chat
 	}

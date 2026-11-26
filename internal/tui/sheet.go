@@ -21,6 +21,8 @@ type sheet struct {
 	editing bool
 	input   textinput.Model
 	errText string
+	saving  bool
+	profile string
 }
 
 type chatDoneMsg struct{ err error }
@@ -29,7 +31,34 @@ func newSheet(a *App, m store.Model) *sheet {
 	env := a.env(m)
 	ti := textinput.New()
 	ti.Prompt = ""
-	return &sheet{env: env, cfg: a.prefs.Get(env), input: ti}
+	return &sheet{env: env, cfg: a.profiles.Get(env), input: ti, profile: a.profiles.LastProfile(m.Ref)}
+}
+
+func newSheetWith(a *App, m store.Model, profile string) *sheet {
+	s := newSheet(a, m)
+	s.load(a, profile)
+	return s
+}
+
+// load switches to a saved profile, or to the defaults for "".
+func (s *sheet) load(a *App, profile string) {
+	s.profile = profile
+	s.cfg = llama.Defaults(s.env).Fix(s.env)
+	if c, ok := a.profiles.Profile(s.env.Model.Ref, profile); ok {
+		s.cfg = c.Fix(s.env)
+	}
+}
+
+func newEditSheet(a *App, e llama.Entry) *sheet {
+	m, _ := a.model(e.Ref)
+	env := a.env(m)
+	ti := textinput.New()
+	ti.Prompt = ""
+	cfg, _ := a.profiles.Profile(e.Ref, e.Name)
+	if m.Path != "" {
+		cfg = cfg.Fix(env)
+	}
+	return &sheet{env: env, cfg: cfg, input: ti, saving: true, profile: e.Name}
 }
 
 func (s *sheet) settings() []llama.Setting {
@@ -38,13 +67,21 @@ func (s *sheet) settings() []llama.Setting {
 	return list
 }
 
-func (s *sheet) title(a *App) string { return "Run " + s.env.Model.Name() }
+func (s *sheet) title(a *App) string {
+	if s.saving {
+		return "Profile " + s.profile + " for " + s.env.Model.Name()
+	}
+	return "Run " + s.env.Model.Name()
+}
 
 func (s *sheet) hints(a *App) string {
 	if s.editing {
 		return a.hints("confirm", "accept", "back", "cancel")
 	}
-	return a.hints("run", "run", "left", "change", "reset", "defaults", "copy", "copy loom cmd", "copy-raw", "copy llama cmd", "back", "close")
+	if s.saving {
+		return a.hints("save", "save", "left", "change", "reset", "defaults", "back", "discard")
+	}
+	return a.hints("run", "run", "left", "change", "profile", "profile", "save", "save profile", "reset", "defaults", "copy", "copy cmd", "back", "close")
 }
 
 func (s *sheet) size(a *App) (int, int) { return 124, 36 }
@@ -91,10 +128,30 @@ func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		cur.Cycle(s.env, &s.cfg, 1)
 	case a.is(key, "edit") && cur.Text:
 		return s, s.edit(cur)
+	case s.saving && (a.is(key, "save") || a.is(key, "confirm") && !cur.Text):
+		a.profiles.Save(s.env.Model.Ref, s.profile, s.cfg)
+		a.say("Saved profile %s", s.profile)
+		return nil, nil
+	case s.saving && a.is(key, "run", "copy", "copy-raw", "profile"):
+	case a.is(key, "save"):
+		p, cmd := newNamePrompt("Save as profile", s.profile, func(a *App, name string) {
+			_, existed := a.profiles.Profile(s.env.Model.Ref, name)
+			a.profiles.Save(s.env.Model.Ref, name, s.cfg)
+			s.profile = name
+			if existed {
+				a.say("Replaced profile %s", name)
+			} else {
+				a.say("Saved profile %s", name)
+			}
+		})
+		a.push(p)
+		return s, cmd
+	case a.is(key, "profile"):
+		return s, s.pickProfile(a)
 	case a.is(key, "reset"):
 		s.cfg = llama.Defaults(s.env).Fix(s.env)
 	case a.is(key, "copy"), a.is(key, "copy-raw"):
-		a.copyCommand(s.env, s.cfg, a.is(key, "copy-raw"))
+		a.copyCommand(s.env, s.cfg, s.profile, a.is(key, "copy-raw"))
 	case a.is(key, "confirm"):
 		if cur.Text {
 			return s, s.edit(cur)
@@ -106,6 +163,24 @@ func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	return s, nil
 }
 
+func (s *sheet) pickProfile(a *App) tea.Cmd {
+	names := a.profiles.Names(s.env.Model.Ref)
+	if len(names) == 0 {
+		a.say("No profiles for this model yet: press %s to save these settings as one", a.keys.Label("save"))
+		return nil
+	}
+	opts := []option{{"", "No profile", "loom's defaults"}}
+	for _, name := range names {
+		c, _ := a.profiles.Profile(s.env.Model.Ref, name)
+		opts = append(opts, option{name, name, summary(s.env, c)})
+	}
+	a.push(newPicker("Profile", opts, s.profile, func(a *App, name string) tea.Cmd {
+		s.load(a, name)
+		return nil
+	}))
+	return nil
+}
+
 func (s *sheet) edit(cur llama.Setting) tea.Cmd {
 	s.editing = true
 	s.input.SetValue(cur.Get(s.cfg))
@@ -114,7 +189,7 @@ func (s *sheet) edit(cur llama.Setting) tea.Cmd {
 }
 
 func (s *sheet) run(a *App) tea.Cmd {
-	a.prefs.Put(s.env.Model.Ref, s.cfg)
+	a.profiles.Remember(s.env.Model.Ref, s.profile, s.cfg)
 	cfg := s.cfg.Fix(s.env)
 	if cfg.Mode == llama.Chat {
 		cmd := llama.Build(s.env, cfg)
@@ -162,7 +237,7 @@ func (s *sheet) body(a *App, w, h int) []string {
 	return s.left(a, w, h, true)
 }
 
-func (s *sheet) head() []string {
+func (s *sheet) head(a *App) []string {
 	m := s.env.Model
 	facts := []string{units.Bytes(m.Size), kindLabel(m.Kind(), m.MMProj != "")}
 	if m.Info != nil {
@@ -172,10 +247,20 @@ func (s *sheet) head() []string {
 		}
 	}
 	line := strings.Join(facts, " · ")
+	if m.Path == "" {
+		line = "not in your library"
+	}
 	if m.Ref != m.Name() {
 		line = m.Ref + "  ·  " + line
 	}
-	return []string{"", " " + sDim.Render(line), ""}
+	prof := sDim.Render("no profile")
+	if s.profile != "" {
+		prof = sBold.Render("profile " + s.profile)
+		if saved, ok := a.profiles.Profile(m.Ref, s.profile); ok && saved.Fix(s.env) != s.cfg.Fix(s.env) {
+			prof += sWarn.Render(" (changed)")
+		}
+	}
+	return []string{"", " " + sDim.Render(line), " " + prof, ""}
 }
 
 func (s *sheet) left(a *App, w, h int, stacked bool) []string {
@@ -183,7 +268,7 @@ func (s *sheet) left(a *App, w, h int, stacked bool) []string {
 	cur := list[s.sel]
 	cmd := llama.Build(s.env, s.cfg)
 
-	lines := s.head()
+	lines := s.head(a)
 	var rows []string
 	selRow := 0
 	group := ""

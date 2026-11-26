@@ -12,6 +12,7 @@ complete -c loom -n $top -a help       -d 'Show help'
 
 complete -c loom -n '__fish_seen_subcommand_from run rm; and __fish_is_nth_token 2' -a '(loom complete models)'
 
+complete -c loom -n '__fish_seen_subcommand_from run' -l profile -d 'Start from a saved profile' -x -a '(loom complete profiles (commandline -opc)[3])'
 complete -c loom -n '__fish_seen_subcommand_from run' -l chat  -d 'Chat in this terminal'
 complete -c loom -n '__fish_seen_subcommand_from run' -l ctx   -d 'Context window in tokens' -x
 complete -c loom -n '__fish_seen_subcommand_from run' -l port  -d 'Server port' -x
