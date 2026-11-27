@@ -53,7 +53,7 @@ func (v *serverView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 }
 
 func serverFacts(a *App, i *llama.Instance, w int) []string {
-	st, err, _ := i.Snapshot(0)
+	st, err := i.State()
 	var badge string
 	switch st {
 	case llama.Loading:

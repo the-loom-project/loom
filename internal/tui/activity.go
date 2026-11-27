@@ -147,7 +147,7 @@ func (v *activity) panel(a *App, s *llama.Instance, w, h int) []string {
 		title += sDim.Render(fmt.Sprintf("  ·  scrolled %d lines up", n))
 	}
 	lines := []string{sEdge.Render(strings.Repeat("─", w)), " " + title}
-	_, _, log := s.Snapshot(1000)
+	log := s.Log()
 	room := max(1, h-len(lines))
 	v.back[s] = min(v.back[s], max(0, len(log)-room))
 	end := len(log) - v.back[s]
@@ -159,7 +159,7 @@ func (v *activity) panel(a *App, s *llama.Instance, w, h int) []string {
 }
 
 func serverRow(a *App, tb table, s *llama.Instance, sel bool) string {
-	st, _, _ := s.Snapshot(0)
+	st, _ := s.State()
 	state := map[llama.State][]seg{
 		llama.Loading: styled("◌ loading", sWarn),
 		llama.Ready:   styled("● ready", sGood),

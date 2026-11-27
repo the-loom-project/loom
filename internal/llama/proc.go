@@ -48,14 +48,16 @@ const maxLog = 4000
 
 func (i *Instance) URL() string { return fmt.Sprintf("http://127.0.0.1:%d", i.Port) }
 
-func (i *Instance) Snapshot(n int) (State, error, []string) {
+func (i *Instance) State() (State, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	lines := i.log
-	if len(lines) > n {
-		lines = lines[len(lines)-n:]
-	}
-	return i.state, i.err, append([]string(nil), lines...)
+	return i.state, i.err
+}
+
+func (i *Instance) Log() []string {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return append([]string(nil), i.log...)
 }
 
 func Start(id int, e Env, cfg Config, cmd Command, port int) (*Instance, error) {
