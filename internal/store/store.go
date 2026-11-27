@@ -216,32 +216,13 @@ func (s *Store) Remove(m Model) error {
 	if siblings == 0 {
 		return os.RemoveAll(dir)
 	}
-	var err error
+	var errs []error
 	for _, f := range m.files {
-		if keep[f] {
-			continue
-		}
-		blob, _ := filepath.EvalSymlinks(f)
-		err = errors.Join(err, os.Remove(f))
-		if blob != "" && !linked(dir, blob) {
-			os.Remove(blob)
+		if !keep[f] {
+			errs = append(errs, os.Remove(f))
 		}
 	}
-	prune(dir)
-	return err
-}
-
-func linked(dir, blob string) bool {
-	found := false
-	filepath.WalkDir(filepath.Join(dir, "snapshots"), func(p string, d os.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
-			if t, e := filepath.EvalSymlinks(p); e == nil && t == blob {
-				found = true
-			}
-		}
-		return nil
-	})
-	return found
+	return errors.Join(append(errs, hf.Prune(s.Hub(), m.Repo, m.Revision))...)
 }
 
 func (o Other) Status() string {
@@ -298,19 +279,6 @@ func partial(dir string) bool {
 		return nil
 	})
 	return found
-}
-
-func prune(dir string) {
-	blobs := filepath.Join(dir, "blobs")
-	entries, _ := os.ReadDir(blobs)
-	for _, e := range entries {
-		p := filepath.Join(blobs, e.Name())
-		if _, err := os.Stat(p); err != nil {
-			os.Remove(p)
-		} else if e.IsDir() {
-			os.Remove(p)
-		}
-	}
 }
 
 func Find(models []Model, q string) (Model, []Model) {

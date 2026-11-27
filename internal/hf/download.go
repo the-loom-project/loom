@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -69,29 +71,41 @@ func carryOver(dir, sha string) {
 	})
 }
 
-func Prune(hub, repo, keep string) {
+func Prune(hub, repo, keep string) error {
 	dir := RepoDir(hub, repo)
+	var errs []error
 	snaps, _ := os.ReadDir(filepath.Join(dir, "snapshots"))
 	for _, s := range snaps {
 		if s.Name() != keep {
-			os.RemoveAll(filepath.Join(dir, "snapshots", s.Name()))
+			errs = append(errs, os.RemoveAll(filepath.Join(dir, "snapshots", s.Name())))
 		}
 	}
 	used := map[string]bool{}
+	var dirs []string
 	filepath.WalkDir(filepath.Join(dir, "snapshots", keep), func(p string, d os.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
+		switch {
+		case err != nil:
+		case d.IsDir():
+			dirs = append(dirs, p)
+		default:
 			if t, err := filepath.EvalSymlinks(p); err == nil {
 				used[filepath.Base(t)] = true
+			} else {
+				errs = append(errs, os.Remove(p))
 			}
 		}
 		return nil
 	})
+	for _, d := range slices.Backward(dirs) {
+		os.Remove(d)
+	}
 	blobs, _ := os.ReadDir(filepath.Join(dir, "blobs"))
 	for _, b := range blobs {
 		if !used[b.Name()] && !strings.HasSuffix(b.Name(), ".incomplete") {
-			os.Remove(filepath.Join(dir, "blobs", b.Name()))
+			errs = append(errs, os.Remove(filepath.Join(dir, "blobs", b.Name())))
 		}
 	}
+	return errors.Join(errs...)
 }
 
 type Meta struct {

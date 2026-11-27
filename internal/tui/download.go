@@ -144,8 +144,11 @@ func (a *App) downloadDone(msg dlDoneMsg) tea.Cmd {
 	case dlDone:
 		hf.WriteMeta(d.hub, d.repo, d.meta)
 		if d.update {
-			hf.Prune(d.hub, d.repo, d.sha)
-			a.say("✓ Updated %s", d.repo)
+			if err := hf.Prune(d.hub, d.repo, d.sha); err != nil {
+				a.complain("Updated %s, but cleaning up the old version failed: %v", d.repo, err)
+			} else {
+				a.say("✓ Updated %s", d.repo)
+			}
 		} else {
 			a.say("✓ Downloaded %s:%s, it's in your Library", d.repo, d.quant)
 		}
