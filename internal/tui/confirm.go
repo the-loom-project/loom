@@ -22,9 +22,9 @@ func (c *confirm) size(a *App) (int, int) {
 func (c *confirm) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok {
 		switch {
-		case key.String() == "y" || key.String() == "Y" || a.is(key, "confirm"):
+		case key.String() == "y" || key.String() == "Y":
 			return nil, c.yes(a)
-		case key.String() == "n" || key.String() == "N" || a.is(key, "back", "quit"):
+		case key.String() == "n" || key.String() == "N" || a.is(key, "back", "quit", "confirm"):
 			return nil, nil
 		}
 	}
