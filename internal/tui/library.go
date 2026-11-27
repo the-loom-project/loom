@@ -95,7 +95,7 @@ func (l *library) hints(a *App) string {
 	if l.searching {
 		return a.hints("confirm", "keep filter", "back", "clear")
 	}
-	return a.hints("confirm", "configure & run", "run", "run again", "info", "details", "filter", "filter", "search", "search", "delete", "delete", "help", "all keys")
+	return a.hints("confirm", "configure & run", "run", "run", "info", "details", "filter", "filter", "search", "search", "delete", "delete", "help", "all keys")
 }
 
 func (l *library) update(a *App, msg tea.Msg) tea.Cmd {

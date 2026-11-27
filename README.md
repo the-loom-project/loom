@@ -42,7 +42,7 @@ Six views, switched with `←` `→`, `tab` or `1`-`6`. `?` lists all keys.
 | Discover | Search Hugging Face, see quant sizes and GPU fit. `u` shows unrunnable.                                                              |
 | Activity | Downloads and running servers, with the selected server's log.                                                                       |
 | Doctor   | Health checks for llama.cpp, GPU, memory, disk and token. `r` rechecks.                                                              |
-| Profiles | Saved launch settings per model. `r` runs, `enter` edits, `e` renames.                                                           |
+| Profiles | Saved launch settings per model. `r` launches, `enter` edits, `e` renames.                                                           |
 | Config   | loom's own options: editor, key hints, warnings, table columns. `d` resets.                                                          |
 
 The launch sheet shows each choice next to the llama.cpp flag it produces. `s` saves its settings as a named profile, `p` loads one, and `loom run <model> --profile <name>` uses it. `E` edits the extra flags in your editor (`$VISUAL`, `$EDITOR`, or set one in Config) in this terminal. `y` copies the `loom run` command, `Y` the plain llama.cpp one. Agent tools are off by default.

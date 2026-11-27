@@ -80,7 +80,7 @@ type doctor struct {
 func (v *doctor) typing() bool { return false }
 
 func (v *doctor) hints(a *App) string {
-	return a.hints("up", "move", "recheck", "check again", "help", "all keys")
+	return a.hints("run", "check again", "help", "all keys")
 }
 
 func (v *doctor) update(a *App, msg tea.Msg) tea.Cmd {
@@ -96,9 +96,13 @@ func (v *doctor) update(a *App, msg tea.Msg) tea.Cmd {
 			v.sc.move(1, n)
 		case a.is(msg, "top"):
 			v.sc.cur = 0
+		case a.is(msg, "page-up"):
+			v.sc.move(-10, n)
+		case a.is(msg, "page-down"):
+			v.sc.move(10, n)
 		case a.is(msg, "bottom"):
 			v.sc.cur = max(0, n-1)
-		case a.is(msg, "recheck"):
+		case a.is(msg, "run"):
 			a.say("Checking again…")
 			return tea.Batch(
 				func() tea.Msg { return hwMsg(hw.Detect()) },

@@ -19,7 +19,7 @@ type serverView struct{ inst *llama.Instance }
 func (v *serverView) title(a *App) string { return v.inst.Model.Name() }
 
 func (v *serverView) hints(a *App) string {
-	h := []string{"stop", "stop", "copy", "copy loom cmd", "copy-raw", "copy llama cmd", "back", "close"}
+	h := []string{"delete", "stop", "copy", "copy loom cmd", "copy-raw", "copy llama cmd", "back", "close"}
 	if v.inst.Config.Mode == llama.Serve {
 		h = append([]string{"open", "open in browser"}, h...)
 	}
@@ -43,7 +43,7 @@ func (v *serverView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		}
 	case a.is(key, "copy"), a.is(key, "copy-raw"):
 		a.copyCommand(env, v.inst.Config, "", a.is(key, "copy-raw"))
-	case a.is(key, "stop"):
+	case a.is(key, "delete"):
 		inst := v.inst
 		if inst.Alive() {
 			a.push(&confirm{heading: "Stop " + inst.Model.Name() + "?", text: fmt.Sprintf("The server on port %d shuts down.", inst.Port), yes: func(a *App) tea.Cmd { inst.Stop(); return nil }})

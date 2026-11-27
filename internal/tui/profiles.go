@@ -13,7 +13,7 @@ type profilesView struct{ sc scroller }
 func (v *profilesView) typing() bool { return false }
 
 func (v *profilesView) hints(a *App) string {
-	return a.hints("run", "run", "confirm", "edit", "rename", "rename", "delete", "delete", "help", "all keys")
+	return a.hints("run", "run", "confirm", "configure", "edit", "rename", "delete", "delete", "help", "all keys")
 }
 
 func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
@@ -28,6 +28,10 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 		v.sc.move(-1, n)
 	case a.is(key, "down"):
 		v.sc.move(1, n)
+	case a.is(key, "page-up"):
+		v.sc.move(-10, n)
+	case a.is(key, "page-down"):
+		v.sc.move(10, n)
 	case a.is(key, "top"):
 		v.sc.cur = 0
 	case a.is(key, "bottom"):
@@ -46,8 +50,8 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 			a.complain("llama.cpp isn't installed: sudo pacman -S llama-cpp ggml-vulkan")
 			return nil
 		}
-		a.push(newSheetWith(a, m, e.Name))
-	case a.is(key, "rename"):
+		return newSheetWith(a, m, e.Name).run(a)
+	case a.is(key, "edit"):
 		e := all[v.sc.cur]
 		p, cmd := newNamePrompt("Rename "+e.Name, e.Name, func(a *App, name string) {
 			if err := a.profiles.Rename(e.Ref, e.Name, name); err != nil {
@@ -56,6 +60,12 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 		})
 		a.push(p)
 		return cmd
+	case a.is(key, "copy"), a.is(key, "copy-raw"):
+		e := all[v.sc.cur]
+		m, _ := a.model(e.Ref)
+		env := a.env(m)
+		cfg, _ := a.profiles.Profile(e.Ref, e.Name)
+		a.copyCommand(env, cfg, e.Name, a.is(key, "copy-raw"))
 	case a.is(key, "delete"):
 		e := all[v.sc.cur]
 		a.push(&confirm{heading: "Delete profile " + e.Name + "?", text: "The profile for " + e.Ref + " is removed. The model itself is kept.", yes: func(a *App) tea.Cmd {

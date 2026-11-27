@@ -116,7 +116,7 @@ func (v *activity) items(a *App) []item {
 }
 
 func (v *activity) hints(a *App) string {
-	return a.hints("confirm", "details", "open", "open in browser", "log-up", "scroll log", "stop", "stop", "copy", "copy cmd", "help", "all keys")
+	return a.hints("confirm", "details", "open", "open in browser", "log-up", "scroll log", "delete", "stop", "copy", "copy cmd", "help", "all keys")
 }
 
 func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
@@ -180,7 +180,7 @@ func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
 			if cur.srv != nil {
 				v.back[cur.srv] = max(0, v.back[cur.srv]-10)
 			}
-		case a.is(msg, "stop"):
+		case a.is(msg, "delete"):
 			v.remove(a, cur)
 		case a.is(msg, "copy"), a.is(msg, "copy-raw"):
 			if cur.srv != nil {
