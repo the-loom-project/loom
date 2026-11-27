@@ -10,6 +10,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"loom/internal/config"
 	"loom/internal/hf"
@@ -303,15 +304,17 @@ func (a *App) quit() tea.Cmd {
 	return nil
 }
 
+const minWidth, minHeight = 40, 10
+
 func (a *App) View() string {
-	if a.w == 0 {
+	switch {
+	case a.w == 0:
 		return ""
+	case a.w < minWidth || a.h < minHeight:
+		return a.tooSmall()
 	}
 	bodyH := a.h - 3
-	var lines []string
-	for _, l := range a.page().view(a, a.w, bodyH) {
-		lines = append(lines, l)
-	}
+	lines := a.page().view(a, a.w, bodyH)
 	for len(lines) < bodyH {
 		lines = append(lines, "")
 	}
@@ -325,6 +328,14 @@ func (a *App) View() string {
 		screen = composite(screen, box(p.title(a), p.hints(a), p.body(a, pw-4, ph-2), pw, ph), a.w)
 	}
 	return strings.Join(screen, "\n")
+}
+
+func (a *App) tooSmall() string {
+	msg := []string{clip(sBold.Render("Not enough screen space"), a.w)}
+	if a.h >= 3 {
+		msg = append(msg, clip(sDim.Render(fmt.Sprintf("make it at least %d×%d", minWidth, minHeight)), a.w))
+	}
+	return lipgloss.Place(a.w, a.h, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Center, msg...))
 }
 
 func (a *App) header() string {
