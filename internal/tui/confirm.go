@@ -14,7 +14,10 @@ func (c *confirm) title(a *App) string { return c.heading }
 
 func (c *confirm) hints(a *App) string { return a.hints("y", "yes", "n", "no") }
 
-func (c *confirm) size(a *App) (int, int) { return 64, 7 }
+func (c *confirm) size(a *App) (int, int) {
+	w := min(a.w-8, 72)
+	return w, len(wrap(c.text, w-4)) + 4
+}
 
 func (c *confirm) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok {

@@ -70,6 +70,7 @@ type configView struct {
 	sc      scroller
 	editing bool
 	input   textinput.Model
+	off     int
 }
 
 func newConfigView() *configView {
@@ -201,5 +202,5 @@ func (v *configView) view(a *App, w, h int) []string {
 	}
 	foot = append(foot, "  "+sDim.Render("Saved to "+home(config.Path())+" as you change it."))
 	room := max(3, h-1-len(foot))
-	return append(append([]string{""}, windowRows(rows, selRow, room)...), foot...)
+	return append(append([]string{""}, windowRows(rows, selRow, room, &v.off)...), foot...)
 }

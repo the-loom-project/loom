@@ -273,3 +273,13 @@ func styled(text string, st lipgloss.Style) []seg { return []seg{{text, st}} }
 func Explain(c llama.Command, w int) string {
 	return strings.Join(renderCommand(c, w, "", 1000, false), "\n")
 }
+
+func windowRows(rows []string, sel, n int, off *int) []string {
+	if len(rows) <= n {
+		*off = 0
+		return rows
+	}
+	*off = min(max(*off, sel-n+1), max(0, sel-1))
+	*off = max(0, min(*off, len(rows)-n))
+	return rows[*off : *off+n]
+}

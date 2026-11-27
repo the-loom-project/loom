@@ -38,9 +38,9 @@ Six views, switched with `←` `→`, `tab` or `1`-`6`. `?` lists all keys.
 
 | View     | What it does                                                                                                                         |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Library  | Downloaded models with GPU fit. `enter` runs, `i` details, `D` finds it on Discover, `/` search, `S` sorts (`←` `→` pick the column, `enter` flips the order). |
+| Library  | Downloaded models, and downloads in progress above them (`space` pauses or resumes), with GPU fit. `enter` runs, `i` details, `D` finds it on Discover, `/` search, `S` sorts (`←` `→` pick the column, `enter` flips the order). |
 | Discover | Search Hugging Face, see sizes, GPU fit and what you already have. `f` filters, `u` shows unrunnable.                                                              |
-| Activity | Downloads and running servers, with the selected server's log.                                                                       |
+| Activity | Running servers, with the selected server's log.                                                                       |
 | Doctor   | Health checks for llama.cpp, GPU, memory, disk and token. `r` rechecks.                                                              |
 | Profiles | Saved launch settings per model. `r` launches, `enter` edits, `e` renames.                                                           |
 | Config   | loom's own options: editor, key hints, warnings, table columns. `d` resets.                                                          |

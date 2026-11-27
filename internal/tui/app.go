@@ -177,6 +177,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case hwMsg:
 		a.hw, a.hwKnown = hw.Hardware(msg), true
 		return a, nil
+	case dlDoneMsg:
+		return a, a.downloadDone(msg)
 	case scanMsg:
 		a.models, a.others, a.scanned = msg.models, msg.others, true
 		return a, nil
@@ -358,11 +360,6 @@ func (a *App) liveCount() int {
 	n := 0
 	for _, s := range a.servers {
 		if s.Alive() {
-			n++
-		}
-	}
-	for _, d := range a.downloads {
-		if d.active() {
 			n++
 		}
 	}

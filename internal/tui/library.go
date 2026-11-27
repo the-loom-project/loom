@@ -42,6 +42,7 @@ func newLibrary() *library {
 type entry struct {
 	model *store.Model
 	other *store.Other
+	dl    *download
 }
 
 func (l *library) entries(a *App) []entry {
@@ -55,6 +56,16 @@ func (l *library) entries(a *App) []entry {
 		out = append(out, entry{model: m})
 	}
 	out = sortedBy(out, l.sort, librarySort, librarySortBy(a))
+	if l.kind == "" {
+		var downloading []entry
+		for i := len(a.downloads) - 1; i >= 0; i-- {
+			d := a.downloads[i]
+			if strings.Contains(strings.ToLower(d.repo+":"+d.quant), q) {
+				downloading = append(downloading, entry{dl: d})
+			}
+		}
+		out = append(downloading, out...)
+	}
 	if l.kind == "" || l.kind == "other" {
 		for i := range a.others {
 			if strings.Contains(strings.ToLower(a.others[i].Repo), q) {
@@ -122,6 +133,16 @@ func (l *library) hints(a *App) string {
 	if l.sort.picking {
 		return l.sort.hints(a)
 	}
+	if e, ok := l.selected(a); ok && e.dl != nil {
+		toggle := "resume"
+		switch _, st, _ := e.dl.snapshot(); st {
+		case dlRunning:
+			toggle = "pause"
+		case dlFailed:
+			toggle = "retry"
+		}
+		return a.hints("pause", toggle, "delete", "cancel", "search", "search", "sort", "sort", "help", "all keys")
+	}
 	return a.hints("confirm", "configure & run", "run", "run", "info", "details", "discover", "find online", "filter", "filter", "search", "search", "sort", "sort", "delete", "delete", "help", "all keys")
 }
 
@@ -182,6 +203,19 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 		l.query.SetValue("")
 		l.kind, l.sc.cur = "", 0
 	case !hasSel:
+	case e.dl != nil:
+		switch {
+		case a.is(key, "delete"):
+			a.dropDownload(e.dl)
+		case a.is(key, "pause"), a.is(key, "run") && !e.dl.active():
+			if e.dl.active() {
+				a.pauseDownload(e.dl)
+				return nil
+			}
+			return a.resumeDownload(e.dl)
+		case a.is(key, "confirm", "run", "info", "discover"):
+			a.say("%s:%s is still downloading, %s pauses it", e.dl.repo, e.dl.quant, a.keys.Label("pause"))
+		}
 	case a.is(key, "delete"):
 		return l.askDelete(a, e)
 	case e.other != nil:
@@ -250,7 +284,7 @@ func (l *library) view(a *App, w, h int) []string {
 	if !a.scanned {
 		return []string{"", "  " + spin(a.tick) + sDim.Render(" Looking at your models…")}
 	}
-	if len(a.models)+len(a.others) == 0 {
+	if len(a.models)+len(a.others)+len(a.downloads) == 0 {
 		return []string{"", "", "  " + sBold.Render("No models yet."), "",
 			"  Press " + sBold.Render(a.keys.Label("view-discover")) + " to browse Hugging Face and download one,",
 			"  or put a .gguf file in " + sFlag.Render(home(a.st.LocalDir())) + ".", "",
@@ -282,14 +316,29 @@ func (l *library) view(a *App, w, h int) []string {
 	if len(es) == 0 {
 		return append(lines, "", sDim.Render("  Nothing matches."))
 	}
-	from, to := l.sc.window(len(es), max(1, h-len(lines)))
+	split := 0
+	for split < len(es) && es[split].dl != nil {
+		split++
+	}
+	divider := split > 0 && split < len(es)
+	room := max(1, h-len(lines))
+	if divider {
+		room = max(1, room-1)
+	}
+	from, to := l.sc.window(len(es), room)
 	for i := from; i < to; i++ {
+		if divider && i == split {
+			lines = append(lines, " "+sDim.Render("downloaded")+" "+sEdge.Render(strings.Repeat("─", max(0, w-13))))
+		}
 		lines = append(lines, l.row(a, tb, es[i], i == l.sc.cur))
 	}
 	return lines
 }
 
 func (l *library) row(a *App, tb table, e entry, sel bool) string {
+	if e.dl != nil {
+		return downloadRow(tb, e.dl, sel)
+	}
 	if e.other != nil {
 		return tb.row(sel, styled(e.other.Repo, sDim), nil, nil, styled(units.Bytes(e.other.Size), sDim), nil, styled("not GGUF", sDim), styled("can't run", sDim))
 	}

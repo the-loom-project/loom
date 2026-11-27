@@ -14,7 +14,7 @@ func (v *helpView) hints(a *App) string {
 	return a.hints("up", "scroll", "back", "close") + sDim.Render("  ·  customize: loom keys")
 }
 
-func (v *helpView) size(a *App) (int, int) { return 110, 34 }
+func (v *helpView) size(a *App) (int, int) { return min(a.w-8, 150), min(a.h-6, 40) }
 
 func (v *helpView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok {

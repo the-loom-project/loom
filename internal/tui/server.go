@@ -26,7 +26,7 @@ func (v *serverView) hints(a *App) string {
 	return a.hints(h...)
 }
 
-func (v *serverView) size(a *App) (int, int) { return 120, a.h - 4 }
+func (v *serverView) size(a *App) (int, int) { return min(a.w-8, 160), a.h - 4 }
 
 func (v *serverView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	key, ok := msg.(tea.KeyMsg)

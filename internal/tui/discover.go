@@ -413,8 +413,12 @@ func (d *discover) view(a *App, w, h int) []string {
 		if d.fetching[r.ID] {
 			size = dim("…")
 		}
+		label := []seg{mark, t(owner+"/", sDim), t(name, nameStyle)}
+		if r.Gated {
+			label = append(label, t(" "+lockGlyph, sWarn))
+		}
 		lines = append(lines, tb.row(i == d.sc.cur,
-			[]seg{mark, t(owner+"/", sDim), t(name, nameStyle)},
+			label,
 			num(params),
 			size,
 			num(units.Count(r.Downloads)),
@@ -459,6 +463,8 @@ func downloaded(models []store.Model, repo string) bool {
 	return false
 }
 
+const lockGlyph = ""
+
 func features(r hf.Summary) []seg {
 	var out []seg
 	add := func(s seg) {
@@ -472,9 +478,6 @@ func features(r hf.Summary) []seg {
 	}
 	if hasTag(r, "moe") || hasTag(r, "mixture-of-experts") {
 		add(t("MoE", sWarn))
-	}
-	if r.Gated {
-		add(t("gated", sWarn))
 	}
 	if r.Pipeline == "feature-extraction" || r.Pipeline == "sentence-similarity" || hasTag(r, "sentence-transformers") {
 		add(t("embedding", sFlag))

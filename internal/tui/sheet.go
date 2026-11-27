@@ -25,6 +25,7 @@ type sheet struct {
 	errText string
 	saving  bool
 	profile string
+	off     int
 }
 
 type chatDoneMsg struct{ err error }
@@ -154,7 +155,7 @@ func (s *sheet) hints(a *App) string {
 	return a.hints("run", "run", "left", "change", "editor", "flags in editor", "profile", "profile", "save", "save profile", "reset", "defaults", "copy", "copy cmd", "back", "close")
 }
 
-func (s *sheet) size(a *App) (int, int) { return 124, 36 }
+func (s *sheet) size(a *App) (int, int) { return min(a.w-8, 170), min(a.h-6, 46) }
 
 func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	if m, ok := msg.(editorDoneMsg); ok && m.s == s {
@@ -301,7 +302,7 @@ func (s *sheet) run(a *App) tea.Cmd {
 
 func (s *sheet) body(a *App, w, h int) []string {
 	if w >= 100 {
-		lw := 52
+		lw := min(max(52, w*2/5), 76)
 		left := s.left(a, lw, h, false)
 		right := s.right(w-lw-3, h)
 		out := make([]string, h)
@@ -320,7 +321,7 @@ func (s *sheet) body(a *App, w, h int) []string {
 	return s.left(a, w, h, true)
 }
 
-func (s *sheet) head(a *App) []string {
+func (s *sheet) head(a *App, w int) []string {
 	m := s.env.Model
 	facts := []string{units.Bytes(m.Size), kindLabel(m.Kind(), m.MMProj != "")}
 	if m.Info != nil {
@@ -343,7 +344,11 @@ func (s *sheet) head(a *App) []string {
 			prof += sWarn.Render(" (changed)")
 		}
 	}
-	return []string{"", " " + sDim.Render(line), " " + prof, ""}
+	out := []string{""}
+	for _, l := range wrap(line, w-3) {
+		out = append(out, " "+sDim.Render(l))
+	}
+	return append(out, " "+prof, "")
 }
 
 func (s *sheet) left(a *App, w, h int, stacked bool) []string {
@@ -351,7 +356,7 @@ func (s *sheet) left(a *App, w, h int, stacked bool) []string {
 	cur := list[s.sel]
 	cmd := llama.Build(s.env, s.cfg)
 
-	lines := s.head(a)
+	lines := s.head(a, w)
 	var rows []string
 	selRow := 0
 	group := ""
@@ -419,16 +424,8 @@ func (s *sheet) left(a *App, w, h int, stacked bool) []string {
 		tail = append([]string{"", " " + heading("Command", w-2)}, renderCommand(cmd, w-2, cur.ID, spare, true)...)
 	}
 	room := max(3, h-len(lines)-len(foot)-len(tail))
-	out := append(append(append(lines, windowRows(rows, selRow, room)...), foot...), tail...)
+	out := append(append(append(lines, windowRows(rows, selRow, room, &s.off)...), foot...), tail...)
 	return out
-}
-
-func windowRows(rows []string, sel, n int) []string {
-	if len(rows) <= n {
-		return rows
-	}
-	from := min(max(0, sel-n/2), len(rows)-n)
-	return rows[from : from+n]
 }
 
 func (s *sheet) right(w, h int) []string {
@@ -448,7 +445,7 @@ func (s *sheet) memory(a *App, w int) []string {
 		}
 		label += sDim.Render(" + "+ctx+" ") + units.Bytes(m.KV)
 	} else {
-		label += sDim.Render(" + context (unknown for this model)")
+		label += sDim.Render(" + context (unknown)")
 	}
 	need := m.Weights + m.KV
 	if m.GPU == 0 {

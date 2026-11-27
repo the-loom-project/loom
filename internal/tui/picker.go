@@ -33,7 +33,21 @@ func (p *picker) hints(a *App) string {
 	return a.hints("confirm", "choose", "back", "cancel")
 }
 
-func (p *picker) size(a *App) (int, int) { return 52, len(p.options) + 5 }
+func (p *picker) labelWidth() int {
+	w := 8
+	for _, o := range p.options {
+		w = max(w, width(o.label))
+	}
+	return min(w, 30) + 2
+}
+
+func (p *picker) size(a *App) (int, int) {
+	help := 0
+	for _, o := range p.options {
+		help = max(help, width(o.help))
+	}
+	return min(a.w-8, max(52, p.labelWidth()+help+8)), len(p.options) + 5
+}
 
 func (p *picker) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	key, ok := msg.(tea.KeyMsg)
@@ -56,9 +70,10 @@ func (p *picker) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 func (p *picker) body(a *App, w, h int) []string {
 	lines := []string{""}
 	for i, o := range p.options {
-		row := " " + fit(o.label, 22) + "  " + sDim.Render(o.help)
+		lw := p.labelWidth()
+		row := " " + fit(o.label, lw) + sDim.Render(o.help)
 		if i == p.sc.cur {
-			lines = append(lines, sPlain.Background(cSel).Bold(true).Render(fit(" "+o.label, 24))+sPlain.Background(cSel).Foreground(cDim).Render(fit(" "+o.help, w-24)))
+			lines = append(lines, sPlain.Background(cSel).Bold(true).Render(fit(" "+o.label, lw+1))+sPlain.Background(cSel).Foreground(cDim).Render(fit(o.help, w-lw-1)))
 		} else {
 			lines = append(lines, row)
 		}

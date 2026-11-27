@@ -51,7 +51,7 @@ func (r *repoView) hints(a *App) string {
 	return a.hints("confirm", "download", "open", "on huggingface.co", "back", "close")
 }
 
-func (r *repoView) size(a *App) (int, int) { return 104, len(r.quants) + 14 }
+func (r *repoView) size(a *App) (int, int) { return min(a.w-8, 116), min(a.h-6, 28) }
 
 func (r *repoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	switch msg := msg.(type) {

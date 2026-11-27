@@ -22,7 +22,10 @@ func (v *infoView) hints(a *App) string {
 	return a.hints("confirm", "configure & run", "copy", "copy loom cmd", "copy-raw", "copy llama cmd", "back", "close")
 }
 
-func (v *infoView) size(a *App) (int, int) { return 88, len(v.body(a, 84, 100)) + 2 }
+func (v *infoView) size(a *App) (int, int) {
+	w := min(a.w-8, 120)
+	return w, min(len(v.body(a, w-4, 100))+2, a.h-6)
+}
 
 func (v *infoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	key, ok := msg.(tea.KeyMsg)

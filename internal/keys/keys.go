@@ -42,6 +42,7 @@ var Actions = []Action{
 	{"info", "Lists", "Show everything about the selected model", []string{"i"}},
 	{"run", "Items", "Run the selected item (Library: with its last settings; Doctor: check again)", []string{"r"}},
 	{"delete", "Items", "Delete the selected item (stops a server, cancels a download)", []string{"x", "delete"}},
+	{"pause", "Items", "Pause or resume the selected download", []string{" "}},
 	{"edit", "Items", "Edit the selected item (renames a profile, edits a text setting)", []string{"e"}},
 	{"reset", "Items", "Reset to defaults (launch sheet, Config)", []string{"d"}},
 	{"sort", "Lists", "Sort the table: ← → pick the column, enter flips ascending / descending", []string{"S"}},
