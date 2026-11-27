@@ -393,16 +393,16 @@ func (d *discover) view(a *App, w, h int) []string {
 	lines[titleRow] = " " + sDim.Render(title)
 
 	tb := newTable(w, hideColumns([]column{
-		{id: "name", title: "  NAME"},
+		{id: "author", title: "  AUTHOR", w: 20},
+		{id: "name", title: "NAME"},
 		{id: "params", title: "PARAMS", w: 8, right: true},
 		{id: "size", title: "SIZE", w: 15, right: true, min: 80},
 		{id: "downloads", title: "DOWNLOADS", w: 11, right: true},
 		{id: "likes", title: "LIKES", w: 7, right: true},
 		{id: "updated", title: "UPDATED", w: 9, min: 90},
-		{id: "tags", title: "TAGS", w: 34, min: 100},
 	}, func(id string) bool { return a.cfg.Hidden("discover", id) })...)
 	lines = append(lines, tb.header())
-	from, to := d.sc.window(len(d.results), max(1, h-len(lines)))
+	from, to := d.sc.window(len(d.results), max(1, h-len(lines)-tagRows))
 	d.winFrom, d.winTo = from, to
 	for i := from; i < to; i++ {
 		r := d.results[i]
@@ -419,21 +419,69 @@ func (d *discover) view(a *App, w, h int) []string {
 			params = gguf.Params(r.GGUF.Params)
 		}
 		size := d.sizeCell(a, r.ID, r.Runnable() != nil)
-		label := []seg{mark, t(owner+"/", sDim), t(name, nameStyle)}
+		label := []seg{t(name, nameStyle)}
 		if r.Gated {
 			label = append(label, t(" "+lockGlyph, sWarn))
 		}
 		lines = append(lines, tb.row(i == d.sc.cur,
+			[]seg{mark, t(owner, sDim)},
 			label,
 			num(params),
 			size,
 			num(units.Count(r.Downloads)),
 			num(units.Count(r.Likes)),
 			dim(units.Ago(r.Updated)),
-			dim(strings.Join(r.Tags, ", ")),
 		))
 	}
-	return lines
+	for len(lines) < h-tagRows {
+		lines = append(lines, "")
+	}
+	return append(lines, d.tagBlock(a, w)...)
+}
+
+const tagRows = 4
+
+func (d *discover) tagBlock(a *App, w int) []string {
+	out := []string{" " + sDim.Render("tags") + " " + sEdge.Render(strings.Repeat("─", max(0, w-7)))}
+	var tags []string
+	if d.sc.cur < len(d.results) {
+		tags = d.results[d.sc.cur].Tags
+	}
+	if len(tags) == 0 {
+		out = append(out, " "+sDim.Render("none"))
+	}
+	var rows []string
+	row, rowW := "", 0
+	for _, tag := range tags {
+		if rowW > 0 && rowW+2+width(tag) > w-2 {
+			rows = append(rows, row)
+			row, rowW = "", 0
+		}
+		st := sDim
+		if a.cfg.Highlighted(tag) {
+			st = sAccent.Bold(true)
+		}
+		if rowW > 0 {
+			row += "  "
+			rowW += 2
+		}
+		row += st.Render(tag)
+		rowW += width(tag)
+	}
+	if row != "" {
+		rows = append(rows, row)
+	}
+	if len(rows) > tagRows-1 {
+		rows = rows[:tagRows-1]
+		rows[tagRows-2] += sDim.Render("  …")
+	}
+	for _, r := range rows {
+		out = append(out, " "+r)
+	}
+	for len(out) < tagRows {
+		out = append(out, "")
+	}
+	return out
 }
 
 func (d *discover) findGGUF(a *App, r hf.Summary) tea.Cmd {

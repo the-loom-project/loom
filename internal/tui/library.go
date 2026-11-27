@@ -268,6 +268,7 @@ func (l *library) view(a *App, w, h int) []string {
 	}
 
 	tb := newTable(w, hideColumns([]column{
+		{id: "author", title: "AUTHOR", w: 18},
 		{id: "name", title: "NAME"},
 		{id: "params", title: "PARAMS", w: 8, right: true},
 		{id: "quant", title: "QUANT", w: 10, min: 90},
@@ -305,12 +306,14 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 		return downloadRow(tb, e.dl, sel)
 	}
 	if e.other != nil {
-		return tb.row(sel, styled(e.other.Repo, sDim), nil, nil, styled(units.Bytes(e.other.Size), sDim), nil, styled("not GGUF", sDim), styled("can't run", sDim))
+		owner, repo, _ := strings.Cut(e.other.Repo, "/")
+		return tb.row(sel, dim(owner), styled(repo, sDim), nil, nil, styled(units.Bytes(e.other.Size), sDim), nil, styled("not GGUF", sDim), styled("can't run", sDim))
 	}
 	m := e.model
 	name := []seg{t(m.Name(), sPlain)}
+	author := ""
 	if m.Repo != "" {
-		name = append(name, t("  "+m.Repo[:strings.Index(m.Repo, "/")], sDim))
+		author, _, _ = strings.Cut(m.Repo, "/")
 	}
 	if a.isRunning(m.Ref) {
 		name = append(name, t("  ● running", sGood))
@@ -327,7 +330,7 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 	case gguf.NotLM:
 		kind, gpu = styled(label, sBad), nil
 	}
-	return tb.row(sel, name, plain(params), dim(m.Quant), plain(units.Bytes(m.Size)), dim(ctx), kind, gpu)
+	return tb.row(sel, dim(author), name, plain(params), dim(m.Quant), plain(units.Bytes(m.Size)), dim(ctx), kind, gpu)
 }
 
 func (a *App) openSheet(m store.Model, runNow bool) tea.Cmd {

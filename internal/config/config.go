@@ -20,6 +20,7 @@ type Config struct {
 	Warnings       bool     `json:"warnings"`
 	GreenPercent   int      `json:"green_percent"`
 	RedRAMPercent  int      `json:"red_ram_percent"`
+	HighlightTags  []string `json:"highlight_tags"`
 	HideLibrary    []string `json:"hide_library_columns"`
 	HideDiscover   []string `json:"hide_discover_columns"`
 
@@ -84,6 +85,17 @@ func (c *Config) hidden(view string) *[]string {
 		return &c.HideLibrary
 	}
 	return &c.HideDiscover
+}
+
+func (c *Config) Highlighted(tag string) bool {
+	tag = strings.ToLower(tag)
+	for _, p := range c.HighlightTags {
+		p = strings.ToLower(p)
+		if prefix, ok := strings.CutSuffix(p, "*"); ok && strings.HasPrefix(tag, prefix) || p == tag {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Config) Hidden(view, column string) bool { return slices.Contains(*c.hidden(view), column) }

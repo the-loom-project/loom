@@ -14,6 +14,7 @@ import (
 type opt struct {
 	group, label, help string
 	text               bool
+	empty              string
 	choices            []option
 	get                func(*config.Config) string
 	set                func(*config.Config, string) error
@@ -62,9 +63,18 @@ func options() []opt {
 		toggle("Show", "Memory estimate", "The memory bar in the launch sheet: how much of your GPU the model and its context would use.", func(c *config.Config) *bool { return &c.MemoryEstimate }),
 		toggle("Show", "Warnings", "The ▲ notes in the launch sheet, such as a model that won't fit or a server open to the network.", func(c *config.Config) *bool { return &c.Warnings }),
 
+		{group: "Tags", label: "Highlighted tags", text: true, empty: "none",
+			help: "Tags that are always highlighted in the tag list under the Discover table, separated by spaces or commas. End one with * to match a prefix, e.g. license:* or base_model:*.",
+			get:  func(c *config.Config) string { return strings.Join(c.HighlightTags, ", ") },
+			set: func(c *config.Config, v string) error {
+				c.HighlightTags = strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == ' ' })
+				return nil
+			}},
+
 		percent("Colors", "Green up to", "Sizes in Discover are green while at most this share of your GPU memory. Lower it to leave more room for the context window.", 1, 100, func(c *config.Config) *int { return &c.GreenPercent }),
 		percent("Colors", "Red beyond", "Sizes in Discover are red when bigger than your GPU memory plus this share of your system RAM, so the model can't be spread across both. Yellow is everything in between.", 0, 200, func(c *config.Config) *int { return &c.RedRAMPercent }),
 
+		columnPref("Library columns", "library", "author", "Author", "The user or organization that published the model."),
 		columnPref("Library columns", "library", "params", "Parameters", "How many billions of parameters the model has."),
 		columnPref("Library columns", "library", "quant", "Quantization", "How compressed the weights are (Q4_K_M, Q8_0, …). Hidden on narrow terminals anyway."),
 		columnPref("Library columns", "library", "size", "Size", "The size of the model on disk."),
@@ -72,12 +82,12 @@ func options() []opt {
 		columnPref("Library columns", "library", "type", "Type", "Chat, embedding, vision and so on."),
 		columnPref("Library columns", "library", "gpu", "GPU fit", "Whether the model fits in your GPU's memory."),
 
+		columnPref("Discover columns", "discover", "author", "Author", "The user or organization that published the model."),
 		columnPref("Discover columns", "discover", "params", "Parameters", "How many billions of parameters the model has."),
 		columnPref("Discover columns", "discover", "size", "Size", "The smallest and largest download of the model across its quantizations, colored by whether it fits your GPU. Looked up for the rows on screen."),
 		columnPref("Discover columns", "discover", "downloads", "Downloads", "How often it was downloaded from Hugging Face."),
 		columnPref("Discover columns", "discover", "likes", "Likes", "Its likes on Hugging Face."),
 		columnPref("Discover columns", "discover", "updated", "Updated", "When it was last changed. Hidden on narrow terminals anyway."),
-		columnPref("Discover columns", "discover", "tags", "Tags", "The tags the Hub lists for the model. Hidden on narrow terminals anyway."),
 	}
 }
 
@@ -108,6 +118,9 @@ func (v *configView) hints(a *App) string {
 func (v *configView) display(a *App, p opt) string {
 	cur := p.get(a.cfg)
 	if p.text {
+		if cur == "" && p.empty != "" {
+			return p.empty
+		}
 		if cur == "" {
 			return "default"
 		}

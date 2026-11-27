@@ -152,7 +152,8 @@ func (a *App) dropDownload(d *download) {
 // downloadRow is a download in the Library table.
 func downloadRow(tb table, d *download, sel bool) string {
 	p, st, err := d.snapshot()
-	name := []seg{t(d.repo, sPlain)}
+	owner, repo, _ := strings.Cut(d.repo, "/")
+	name := []seg{t(repo, sPlain)}
 	size := dim(units.Bytes(p.Total))
 	switch st {
 	case dlRunning:
@@ -166,13 +167,13 @@ func downloadRow(tb table, d *download, sel bool) string {
 			}
 		}
 		name = append(name, t(info, sDim))
-		return tb.row(sel, name, nil, dim(d.quant), size, nil, styled(fmt.Sprintf("↓ %d%%", pct(p)), sAccent),
+		return tb.row(sel, dim(owner), name, nil, dim(d.quant), size, nil, styled(fmt.Sprintf("↓ %d%%", pct(p)), sAccent),
 			[]seg{t(strings.Repeat("█", n), sAccent), t(strings.Repeat("░", 14-n), sDim)})
 	case dlPaused:
 		frac := float64(p.Done) / float64(max(1, p.Total))
 		n := int(min(1, frac)*14 + 0.5)
-		return tb.row(sel, name, nil, dim(d.quant), size, nil, styled(fmt.Sprintf("paused %d%%", pct(p)), sWarn),
+		return tb.row(sel, dim(owner), name, nil, dim(d.quant), size, nil, styled(fmt.Sprintf("paused %d%%", pct(p)), sWarn),
 			[]seg{t(strings.Repeat("█", n), sWarn), t(strings.Repeat("░", 14-n), sDim)})
 	}
-	return tb.row(sel, name, nil, dim(d.quant), size, nil, styled("✗ failed", sBad), styled(err.Error(), sBad))
+	return tb.row(sel, dim(owner), name, nil, dim(d.quant), size, nil, styled("✗ failed", sBad), styled(err.Error(), sBad))
 }
