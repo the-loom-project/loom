@@ -38,7 +38,7 @@ Six views, switched with `←` `→`, `tab` or `1`-`6`. `?` lists all keys.
 
 | View     | What it does                                                                                                                         |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Library  | Downloaded models, and downloads in progress above them (`space` pauses or resumes), with GPU fit. `enter` runs, `i` details, `D` finds it on Discover, `/` search. |
+| Library  | Downloaded models, and downloads in progress above them (`space` pauses or resumes), with GPU fit. `enter` runs, `i` details, `D` finds it on Discover, `u` updates it when the Hub has a newer version, `/` search. |
 | Discover | Search Hugging Face, see sizes, GPU fit and what you already have. `f` filters, `s` picks the sort, `S` flips its direction, `]` `[` turn the page.                                                              |
 | Activity | Running servers, with the selected server's log.                                                                       |
 | Doctor   | Health checks for llama.cpp, GPU, memory, disk and token. `r` rechecks.                                                              |

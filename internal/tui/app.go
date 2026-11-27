@@ -62,6 +62,9 @@ type App struct {
 	popups []popup
 
 	downloads []*download
+	latest    map[string]*hf.Repo
+	checked   map[string]bool
+	gate      chan struct{}
 	servers   []*llama.Instance
 	nextID    int
 
@@ -76,7 +79,7 @@ type status struct {
 }
 
 func Run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, km *keys.Map, cfg *config.Config) error {
-	a := &App{st: st, hub: hub, profiles: profiles, keys: km, cfg: cfg, nextID: 1}
+	a := &App{st: st, hub: hub, profiles: profiles, keys: km, cfg: cfg, nextID: 1, latest: map[string]*hf.Repo{}, checked: map[string]bool{}, gate: make(chan struct{}, 4)}
 	a.lib, a.disc, a.act, a.doc = newLibrary(), newDiscover(), newActivity(), &doctor{}
 	a.prof, a.conf = &profilesView{}, newConfigView()
 	if len(km.Problems) > 0 {
@@ -181,6 +184,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.downloadDone(msg)
 	case scanMsg:
 		a.models, a.others, a.scanned = msg.models, msg.others, true
+		return a, a.checkLatest()
+	case latestMsg:
+		a.latestArrived(msg)
 		return a, nil
 	case tickMsg:
 		a.tick++

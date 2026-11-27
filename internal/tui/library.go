@@ -116,7 +116,11 @@ func (l *library) hints(a *App) string {
 		}
 		return a.hints("pause", toggle, "delete", "cancel", "search", "search", "help", "all keys")
 	}
-	return a.hints("confirm", "configure & run", "run", "run", "info", "details", "discover", "find online", "filter", "filter", "search", "search", "delete", "delete", "help", "all keys")
+	pairs := []string{"confirm", "configure & run", "run", "run", "info", "details", "discover", "find online", "filter", "filter", "search", "search", "delete", "delete", "help", "all keys"}
+	if e, ok := l.selected(a); ok && e.model != nil && a.outdated(*e.model) {
+		pairs = append([]string{"update", "update to latest"}, pairs...)
+	}
+	return a.hints(pairs...)
 }
 
 func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
@@ -173,13 +177,13 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 		switch {
 		case a.is(key, "delete"):
 			a.dropDownload(e.dl)
-		case a.is(key, "pause"), a.is(key, "run") && !e.dl.active():
+		case a.is(key, "pause"), a.is(key, "run", "update") && !e.dl.active():
 			if e.dl.active() {
 				a.pauseDownload(e.dl)
 				return nil
 			}
 			return a.resumeDownload(e.dl)
-		case a.is(key, "confirm", "run", "info", "discover"):
+		case a.is(key, "confirm", "run", "info", "discover", "update"):
 			a.say("%s:%s is still downloading, %s pauses it", e.dl.repo, e.dl.quant, a.keys.Label("pause"))
 		}
 	case a.is(key, "delete"):
@@ -187,6 +191,18 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 	case e.other != nil:
 		if a.is(key, "confirm", "run", "info") {
 			a.complain("%s is not a GGUF model, so llama.cpp can't run it (x deletes it)", e.other.Repo)
+		}
+	case a.is(key, "update"):
+		m := *e.model
+		switch {
+		case m.Source != store.HF:
+			a.say("%s is a local file, there's nothing to update it from", m.Name())
+		case a.latest[m.Repo] == nil:
+			a.say("Haven't heard back from the Hub about %s yet", m.Repo)
+		case !a.outdated(m):
+			a.say("%s is up to date", m.Name())
+		default:
+			return a.updateModel(m)
 		}
 	case a.is(key, "info"):
 		a.push(&infoView{model: *e.model})
@@ -330,7 +346,10 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 		name = append(name, t("  ● running", sGood))
 	}
 	updated := dim("")
-	if m.HasMeta && !m.Meta.Updated.IsZero() {
+	switch {
+	case a.outdated(*m):
+		updated = styled("↑ update", sWarn)
+	case m.HasMeta && !m.Meta.Updated.IsZero():
 		updated = dim(units.Ago(m.Meta.Updated))
 	}
 	params, ctx := "", ""

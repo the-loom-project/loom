@@ -41,7 +41,57 @@ func (c *Client) Download(ctx context.Context, hub, repo, sha string, files []Fi
 	if err := os.MkdirAll(filepath.Join(dir, "refs"), 0o755); err != nil {
 		return err
 	}
+	carryOver(dir, sha)
 	return os.WriteFile(filepath.Join(dir, "refs", "main"), []byte(sha), 0o644)
+}
+
+func carryOver(dir, sha string) {
+	old, err := os.ReadFile(filepath.Join(dir, "refs", "main"))
+	if err != nil || strings.TrimSpace(string(old)) == sha {
+		return
+	}
+	from := filepath.Join(dir, "snapshots", strings.TrimSpace(string(old)))
+	to := filepath.Join(dir, "snapshots", sha)
+	filepath.WalkDir(from, func(p string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		rel, _ := filepath.Rel(from, p)
+		link := filepath.Join(to, rel)
+		if _, err := os.Lstat(link); err == nil {
+			return nil
+		}
+		if target, err := os.Readlink(p); err == nil {
+			os.MkdirAll(filepath.Dir(link), 0o755)
+			os.Symlink(target, link)
+		}
+		return nil
+	})
+}
+
+func Prune(hub, repo, keep string) {
+	dir := RepoDir(hub, repo)
+	snaps, _ := os.ReadDir(filepath.Join(dir, "snapshots"))
+	for _, s := range snaps {
+		if s.Name() != keep {
+			os.RemoveAll(filepath.Join(dir, "snapshots", s.Name()))
+		}
+	}
+	used := map[string]bool{}
+	filepath.WalkDir(filepath.Join(dir, "snapshots", keep), func(p string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			if t, err := filepath.EvalSymlinks(p); err == nil {
+				used[filepath.Base(t)] = true
+			}
+		}
+		return nil
+	})
+	blobs, _ := os.ReadDir(filepath.Join(dir, "blobs"))
+	for _, b := range blobs {
+		if !used[b.Name()] && !strings.HasSuffix(b.Name(), ".incomplete") {
+			os.Remove(filepath.Join(dir, "blobs", b.Name()))
+		}
+	}
 }
 
 type Meta struct {

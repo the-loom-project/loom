@@ -30,6 +30,7 @@ type download struct {
 	hub, sha    string
 	files       []hf.File
 	meta        hf.Meta
+	update      bool
 
 	mu      sync.Mutex
 	prog    hf.Progress
@@ -137,7 +138,12 @@ func (a *App) downloadDone(msg dlDoneMsg) tea.Cmd {
 	switch st {
 	case dlDone:
 		hf.WriteMeta(d.hub, d.repo, d.meta)
-		a.say("✓ Downloaded %s:%s, it's in your Library", d.repo, d.quant)
+		if d.update {
+			hf.Prune(d.hub, d.repo, d.sha)
+			a.say("✓ Updated %s", d.repo)
+		} else {
+			a.say("✓ Downloaded %s:%s, it's in your Library", d.repo, d.quant)
+		}
 		a.downloads = without(a.downloads, d)
 	case dlFailed:
 		a.complain("Download of %s:%s failed: %v", d.repo, d.quant, msg.err)

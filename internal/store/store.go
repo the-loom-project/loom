@@ -29,8 +29,10 @@ type Model struct {
 	Info   *gguf.Info
 	Err    error
 
-	Meta    hf.Meta
-	HasMeta bool
+	Revision string
+	Blobs    map[string]string
+	Meta     hf.Meta
+	HasMeta  bool
 
 	files []string
 }
@@ -125,7 +127,8 @@ func scanRepo(repo, dir string) []Model {
 	if err != nil {
 		return nil
 	}
-	snap := filepath.Join(dir, "snapshots", strings.TrimSpace(string(rev)))
+	revision := strings.TrimSpace(string(rev))
+	snap := filepath.Join(dir, "snapshots", revision)
 	byQuant := map[string][]string{}
 	var mmproj string
 	filepath.WalkDir(snap, func(p string, d os.DirEntry, err error) error {
@@ -147,8 +150,17 @@ func scanRepo(repo, dir string) []Model {
 	var out []Model
 	for q, files := range byQuant {
 		sort.Strings(files)
-		m := Model{Repo: repo, Quant: q, Source: HF, Path: files[0], MMProj: mmproj, files: files}
+		m := Model{Repo: repo, Quant: q, Source: HF, Path: files[0], MMProj: mmproj, files: files, Revision: revision, Blobs: map[string]string{}}
 		m.Meta, m.HasMeta = hf.ReadMeta(filepath.Dir(dir), repo)
+		for _, f := range append(append([]string{}, files...), mmproj) {
+			if f == "" {
+				continue
+			}
+			if blob, err := filepath.EvalSymlinks(f); err == nil {
+				rel, _ := filepath.Rel(snap, f)
+				m.Blobs[filepath.ToSlash(rel)] = filepath.Base(blob)
+			}
+		}
 		m.Ref = repo
 		if q != "" {
 			m.Ref += ":" + q
