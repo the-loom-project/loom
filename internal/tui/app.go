@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -44,6 +45,7 @@ type App struct {
 	profiles *llama.Profiles
 	keys     *keys.Map
 	cfg      *config.Config
+	warnings []string
 
 	hw      hw.Hardware
 	hwKnown bool
@@ -78,12 +80,12 @@ type status struct {
 	at   time.Time
 }
 
-func Run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, km *keys.Map, cfg *config.Config) error {
-	a := &App{st: st, hub: hub, profiles: profiles, keys: km, cfg: cfg, nextID: 1, latest: map[string]*hf.Repo{}, checked: map[string]bool{}, gate: make(chan struct{}, 4)}
+func Run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, km *keys.Map, cfg *config.Config, warnings []string) error {
+	a := &App{st: st, hub: hub, profiles: profiles, keys: km, cfg: cfg, warnings: warnings, nextID: 1, latest: map[string]*hf.Repo{}, checked: map[string]bool{}, gate: make(chan struct{}, 4)}
 	a.lib, a.disc, a.act, a.doc = newLibrary(), newDiscover(), newActivity(), &doctor{}
 	a.prof, a.conf = &profilesView{}, newConfigView()
-	if len(km.Problems) > 0 {
-		a.complain("%s", km.Problems[0])
+	if problems := slices.Concat(warnings, km.Problems); len(problems) > 0 {
+		a.complain("%s", problems[0])
 	}
 	p := tea.NewProgram(a, tea.WithAltScreen())
 

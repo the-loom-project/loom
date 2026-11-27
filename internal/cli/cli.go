@@ -25,8 +25,15 @@ import (
 )
 
 func Main(args []string) int {
-	cfg := config.Load()
-	st, hub, profiles, km := store.Open(), hf.New(cfg.NetTimeout()), llama.LoadProfiles(), keys.Load()
+	cfg, cerr := config.Load()
+	profiles, perr := llama.LoadProfiles()
+	st, hub, km := store.Open(), hf.New(cfg.NetTimeout()), keys.Load()
+	var warnings []string
+	for _, err := range []error{cerr, perr} {
+		if err != nil {
+			warnings = append(warnings, err.Error())
+		}
+	}
 	var err error
 	cmd := ""
 	if len(args) > 0 {
@@ -36,9 +43,14 @@ func Main(args []string) int {
 		fmt.Print(page)
 		return 0
 	}
+	if cmd != "" && cmd != "complete" {
+		for _, w := range warnings {
+			fmt.Fprintln(os.Stderr, "loom: warning:", w)
+		}
+	}
 	switch cmd {
 	case "":
-		err = tui.Run(st, hub, profiles, km, cfg)
+		err = tui.Run(st, hub, profiles, km, cfg, warnings)
 	case "run":
 		err = run(st, hub, profiles, args)
 	case "pull":

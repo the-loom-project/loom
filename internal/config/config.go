@@ -1,7 +1,7 @@
 package config
 
 import (
-	"encoding/json"
+	"loom/internal/jsonfile"
 	"os"
 	"path/filepath"
 	"slices"
@@ -34,11 +34,11 @@ func Defaults() *Config {
 }
 
 // Reset puts every option back to its default and saves.
-func (c *Config) Reset() {
+func (c *Config) Reset() error {
 	path := c.path
 	*c = *Defaults()
 	c.path = path
-	c.Save()
+	return c.Save()
 }
 
 func Path() string {
@@ -46,11 +46,13 @@ func Path() string {
 	return filepath.Join(dir, "loom", "config.json")
 }
 
-func Load() *Config {
+func Load() (*Config, error) {
 	c := Defaults()
 	c.path = Path()
-	if b, err := os.ReadFile(c.path); err == nil {
-		json.Unmarshal(b, c)
+	err := jsonfile.Read(c.path, c)
+	if err != nil {
+		*c = *Defaults()
+		c.path = Path()
 	}
 	if c.GreenPercent < 1 || c.GreenPercent > 100 {
 		c.GreenPercent = Defaults().GreenPercent
@@ -64,15 +66,10 @@ func Load() *Config {
 	if !slices.ContainsFunc(Languages, func(l Language) bool { return l.Code == c.Language }) {
 		c.Language = Languages[0].Code
 	}
-	return c
+	return c, err
 }
 
-func (c *Config) Save() {
-	if b, err := json.MarshalIndent(c, "", "  "); err == nil {
-		os.MkdirAll(filepath.Dir(c.path), 0o755)
-		os.WriteFile(c.path, b, 0o644)
-	}
-}
+func (c *Config) Save() error { return jsonfile.Write(c.path, c) }
 
 // EditorCmd returns the command that opens a file for editing: the configured
 // editor, else $VISUAL, else $EDITOR, else vi.

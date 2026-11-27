@@ -219,6 +219,9 @@ func (v *doctor) checks(a *App) []check {
 		}
 	}
 
+	if len(a.warnings) > 0 {
+		add(warn, "Settings files", fmt.Sprintf("%d problem(s)", len(a.warnings)), strings.Join(a.warnings, " "))
+	}
 	if len(a.keys.Problems) > 0 {
 		add(warn, "Key bindings", fmt.Sprintf("%d problem(s) in %s", len(a.keys.Problems), home(keys.Path())), strings.Join(a.keys.Problems, "; "))
 	}

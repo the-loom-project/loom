@@ -1,8 +1,8 @@
 package llama
 
 import (
-	"encoding/json"
 	"fmt"
+	"loom/internal/jsonfile"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,11 +27,12 @@ type Profiles struct {
 
 type Entry struct{ Ref, Name string }
 
-func LoadProfiles() *Profiles {
+func LoadProfiles() (*Profiles, error) {
 	dir, _ := os.UserConfigDir()
 	p := &Profiles{path: filepath.Join(dir, "loom", "profiles.json")}
-	if b, err := os.ReadFile(p.path); err == nil {
-		json.Unmarshal(b, &p.f)
+	err := jsonfile.Read(p.path, &p.f)
+	if err != nil {
+		p.f = profileFile{}
 	}
 	if p.f.Last == nil {
 		p.f.Last = map[string]Last{}
@@ -39,15 +40,10 @@ func LoadProfiles() *Profiles {
 	if p.f.Profiles == nil {
 		p.f.Profiles = map[string]map[string]Config{}
 	}
-	return p
+	return p, err
 }
 
-func (p *Profiles) save() {
-	if b, err := json.MarshalIndent(p.f, "", "  "); err == nil {
-		os.MkdirAll(filepath.Dir(p.path), 0o755)
-		os.WriteFile(p.path, b, 0o644)
-	}
-}
+func (p *Profiles) save() error { return jsonfile.Write(p.path, p.f) }
 
 // Get is the config a model starts from: what it was last run with, else the defaults.
 func (p *Profiles) Get(e Env) Config {
