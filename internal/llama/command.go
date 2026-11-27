@@ -7,6 +7,7 @@ import (
 
 	"loom/internal/gguf"
 	"loom/internal/hw"
+	"loom/internal/units"
 )
 
 type Arg struct {
@@ -203,12 +204,12 @@ func Notes(e Env, c Config) []Note {
 		switch hw.Assess(need, mem.GPU, e.HW.RAM) {
 		case hw.Spills:
 			if c.Offload == "all" {
-				add(true, "Needs about %s but the GPU has %s: with all layers on the GPU this will fail to load.", gb(need), gib(mem.GPU))
+				add(true, "Needs about %s but the GPU has %s: with all layers on the GPU this will fail to load.", units.GiB(need), units.GiB(mem.GPU))
 			} else {
-				add(false, "Needs about %s but the GPU has %s: part of the model will run on the CPU, which is slower.", gb(need), gib(mem.GPU))
+				add(false, "Needs about %s but the GPU has %s: part of the model will run on the CPU, which is slower.", units.GiB(need), units.GiB(mem.GPU))
 			}
 		case hw.TooBig:
-			add(true, "Needs about %s: more than the GPU and free RAM together.", gb(need))
+			add(true, "Needs about %s: more than the GPU and free RAM together.", units.GiB(need))
 		}
 	}
 	if e.Model.Kind() == gguf.Embedding {
@@ -224,7 +225,3 @@ func cwd() string {
 	d, _ := os.Getwd()
 	return d
 }
-
-func gib(n int64) string { return fmt.Sprintf("%.0f GB", float64(n)/hw.GiB) }
-
-func gb(n int64) string { return fmt.Sprintf("%.1f GB", float64(n)/1e9) }

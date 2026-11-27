@@ -90,15 +90,15 @@ func (v *infoView) body(a *App, w, h int) []string {
 	}
 	lines = append(lines, "", " "+heading("When you run it", w-2))
 	lines = append(lines, row("Settings", summary(env, cfg)))
-	mm := units.Bytes(mem.Weights) + " weights"
+	mm := units.GiB(mem.Weights) + " weights"
 	if mem.Known {
-		mm += fmt.Sprintf(" + %s for %s of context", units.Bytes(mem.KV), units.Tokens(uint64(mem.Context)))
+		mm += fmt.Sprintf(" + %s for %s of context", units.GiB(mem.KV), units.Tokens(uint64(mem.Context)))
 		if mem.Floor {
 			mm += " (at least)"
 		}
 	}
 	if mem.GPU > 0 {
-		mm += fmt.Sprintf("  of %s GPU memory", units.VRAM(mem.GPU))
+		mm += fmt.Sprintf("  of %s GPU memory", units.GiB(mem.GPU))
 	}
 	lines = append(lines, row("Memory", mm))
 	lines = append(lines, row("Fit", strings.TrimSpace(plainText(fitSeg(gpuFit(a, m.Size))))))

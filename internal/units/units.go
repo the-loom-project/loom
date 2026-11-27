@@ -19,7 +19,13 @@ func Bytes(n int64) string {
 	return "0 B"
 }
 
-func VRAM(n int64) string { return fmt.Sprintf("%.0f GB", float64(n)/(1<<30)) }
+func GiB(n int64) string {
+	g := float64(n) / (1 << 30)
+	if g >= 10 {
+		return fmt.Sprintf("%.0f GiB", g)
+	}
+	return fmt.Sprintf("%.1f GiB", g)
+}
 
 func Count(n int) string {
 	switch {

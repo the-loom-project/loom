@@ -146,7 +146,7 @@ func (v *doctor) checks(a *App) []check {
 			if len(a.hw.Devices) > 1 {
 				name = fmt.Sprintf("GPU %d", i+1)
 			}
-			res := fmt.Sprintf("%s  %s, %s free", d.Short(), units.VRAM(d.Total), units.Bytes(d.Free))
+			res := fmt.Sprintf("%s  %s, %s free", d.Short(), units.GiB(d.Total), units.GiB(d.Free))
 			if d.Free < d.Total/4 {
 				add(warn, name, res, "Most of the video memory is already taken, probably by another program or a running model. Models will spill into system RAM.")
 			} else {
@@ -160,9 +160,9 @@ func (v *doctor) checks(a *App) []check {
 		case a.hw.RAM == 0:
 			add(warn, "Memory", "unknown", "Couldn't read /proc/meminfo.")
 		case a.hw.RAM < 4*hw.GiB:
-			add(warn, "Memory", units.Bytes(a.hw.RAM)+" available", "Little free RAM: models that don't fit in video memory won't load.")
+			add(warn, "Memory", units.GiB(a.hw.RAM)+" available", "Little free RAM: models that don't fit in video memory won't load.")
 		default:
-			add(good, "Memory", units.Bytes(a.hw.RAM)+" available", "")
+			add(good, "Memory", units.GiB(a.hw.RAM)+" available", "")
 		}
 	}
 

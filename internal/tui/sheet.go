@@ -451,19 +451,19 @@ func (s *sheet) right(w, h int) []string {
 
 func (s *sheet) memory(a *App, w int) []string {
 	m := llama.Estimate(s.env, s.cfg)
-	label := " " + sBold.Render("Memory") + sDim.Render("  weights ") + units.Bytes(m.Weights)
+	label := " " + sBold.Render("Memory") + sDim.Render("  weights ") + units.GiB(m.Weights)
 	if m.Known {
 		ctx := units.Tokens(uint64(m.Context)) + " context"
 		if m.Floor {
 			ctx = "≥" + ctx
 		}
-		label += sDim.Render(" + "+ctx+" ") + units.Bytes(m.KV)
+		label += sDim.Render(" + "+ctx+" ") + units.GiB(m.KV)
 	} else {
 		label += sDim.Render(" + context (unknown)")
 	}
 	need := m.Weights + m.KV
 	if m.GPU == 0 {
-		return []string{label + sDim.Render(fmt.Sprintf(" = %s, all in RAM", units.Bytes(need)))}
+		return []string{label + sDim.Render(fmt.Sprintf(" = %s, all in RAM", units.GiB(need)))}
 	}
 	st := sGood
 	switch hw.Assess(need, m.GPU, a.hw.RAM) {
@@ -473,7 +473,7 @@ func (s *sheet) memory(a *App, w int) []string {
 		st = sBad
 	}
 	bw := max(10, min(34, w-26))
-	return []string{label, " " + bar(float64(need)/float64(m.GPU), bw, st) + sDim.Render(fmt.Sprintf(" %s of %s GPU", units.Bytes(need), units.VRAM(m.GPU)))}
+	return []string{label, " " + bar(float64(need)/float64(m.GPU), bw, st) + sDim.Render(fmt.Sprintf(" %s of %s GPU", units.GiB(need), units.GiB(m.GPU)))}
 }
 
 func flagsOf(c llama.Command, id string) string {

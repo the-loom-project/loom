@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"loom/internal/gguf"
+	"loom/internal/units"
 )
 
 type Choice struct {
@@ -136,8 +137,8 @@ var AllSettings = []Setting{
 		Choices: func(e Env) []Choice {
 			var out []Choice
 			for i, d := range e.HW.Devices {
-				help := fmt.Sprintf("%s, %.0f GB of memory.", d.Name, float64(d.Total)/(1<<30))
-				label := fmt.Sprintf("%s (%.0f GB)", d.Short(), float64(d.Total)/(1<<30))
+				help := fmt.Sprintf("%s, %s of memory.", d.Name, units.GiB(d.Total))
+				label := fmt.Sprintf("%s (%s)", d.Short(), units.GiB(d.Total))
 				if i == 0 {
 					help += " The first device llama.cpp lists; usually the fastest."
 					out = append(out, Choice{"", label, help})
