@@ -63,7 +63,7 @@ func (v *filterForm) hints(a *App) string {
 	if v.editing {
 		return a.hints("confirm", "accept", "back", "cancel")
 	}
-	return a.hints("confirm", "edit / toggle", "reset", "defaults", "back", "apply")
+	return a.hints("confirm", "edit / toggle", "save", "apply", "reset", "defaults", "back", "cancel")
 }
 
 func (v *filterForm) value(row int) string {
@@ -112,7 +112,9 @@ func (v *filterForm) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		return v, nil
 	}
 	switch {
-	case a.is(key, "back", "quit", "filter"):
+	case a.is(key, "back", "quit"):
+		return nil, nil
+	case a.is(key, "save", "filter"):
 		if v.f == v.orig {
 			return nil, nil
 		}
