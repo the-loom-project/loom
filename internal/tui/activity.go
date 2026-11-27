@@ -30,7 +30,7 @@ func (v *activity) items(a *App) []*llama.Instance {
 }
 
 func (v *activity) hints(a *App) string {
-	return a.hints("confirm", "details", "open", "open in browser", "log-up", "scroll log", "delete", "stop", "copy", "copy command", "help", "all keys")
+	return a.hints("details", "details", "open", "open in browser", "log-up", "scroll log", "delete", "stop", "copy", "copy command", "help", "all keys")
 }
 
 func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
@@ -57,7 +57,7 @@ func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
 			v.sc.cur = max(0, n-1)
 		case a.is(msg, "clear"):
 			a.clearFinished()
-		case a.is(msg, "confirm"):
+		case a.is(msg, "details"):
 			if cur != nil {
 				a.push(&serverView{inst: cur})
 			}
