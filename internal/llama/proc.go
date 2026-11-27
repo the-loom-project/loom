@@ -36,12 +36,13 @@ type Instance struct {
 	Port    int
 	Started time.Time
 
-	mu    sync.Mutex
-	state State
-	err   error
-	log   []string
-	cmd   *exec.Cmd
-	stop  bool
+	mu     sync.Mutex
+	state  State
+	err    error
+	log    []string
+	cmd    *exec.Cmd
+	stop   bool
+	exited chan struct{}
 }
 
 const maxLog = 4000
@@ -61,7 +62,7 @@ func (i *Instance) Log() []string {
 }
 
 func Start(id int, e Env, cfg Config, cmd Command, port int) (*Instance, error) {
-	inst := &Instance{ID: id, Model: e.Model, Config: cfg, Command: cmd, Port: port, Started: time.Now()}
+	inst := &Instance{ID: id, Model: e.Model, Config: cfg, Command: cmd, Port: port, Started: time.Now(), exited: make(chan struct{})}
 	c := exec.Command(cmd.Bin, cmd.Argv()...)
 	c.Dir = cmd.Dir
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -97,6 +98,7 @@ func Start(id int, e Env, cfg Config, cmd Command, port int) (*Instance, error) 
 	}()
 	go func() {
 		err := c.Wait()
+		defer close(inst.exited)
 		inst.mu.Lock()
 		defer inst.mu.Unlock()
 		switch {
@@ -115,12 +117,10 @@ var health = &http.Client{Timeout: 2 * time.Second}
 func (i *Instance) waitReady() {
 	url := i.URL() + "/health"
 	for {
-		time.Sleep(400 * time.Millisecond)
-		i.mu.Lock()
-		done := i.state == Stopped || i.state == Failed
-		i.mu.Unlock()
-		if done {
+		select {
+		case <-i.exited:
 			return
+		case <-time.After(400 * time.Millisecond):
 		}
 		resp, err := health.Get(url)
 		if err != nil {
@@ -148,7 +148,13 @@ func (i *Instance) Stop() {
 	pid := i.cmd.Process.Pid
 	i.mu.Unlock()
 	syscall.Kill(-pid, syscall.SIGTERM)
-	time.AfterFunc(5*time.Second, func() { syscall.Kill(-pid, syscall.SIGKILL) })
+	go func() {
+		select {
+		case <-i.exited:
+		case <-time.After(5 * time.Second):
+			syscall.Kill(-pid, syscall.SIGKILL)
+		}
+	}()
 }
 
 func (i *Instance) Alive() bool {
