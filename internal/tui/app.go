@@ -32,7 +32,10 @@ const (
 	tabConfig
 )
 
-var tabNames = [...]string{"Library", "Discover", "Activity", "Doctor", "Profiles", "Config"}
+var (
+	tabNames = [...]string{"Library", "Discover", "Activity", "Doctor", "Profiles", "Config"}
+	tabKeys  = [...]string{"view-library", "view-discover", "view-activity", "view-doctor", "view-profiles", "view-config"}
+)
 
 type page interface {
 	update(a *App, msg tea.Msg) tea.Cmd
@@ -185,76 +188,74 @@ func (a *App) page() page {
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmd := a.update(msg)
+	if a.tab == tabDiscover {
+		cmd = tea.Batch(cmd, a.disc.fetchSizes(a))
+	}
+	return a, cmd
+}
+
+func (a *App) update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.w, a.h = msg.Width, msg.Height
-		return a, nil
+		return nil
 	case hwMsg:
 		a.hw, a.hwKnown = hw.Hardware(msg), true
-		return a, nil
+		return nil
 	case dlDoneMsg:
-		return a, a.downloadDone(msg)
+		return a.downloadDone(msg)
 	case discardMsg:
-		return a, a.discarded(msg)
+		return a.discarded(msg)
 	case scanMsg:
 		a.models, a.others, a.scanned = msg.models, msg.others, true
-		return a, a.checkLatest()
+		return a.checkLatest()
 	case latestMsg:
 		a.latestArrived(msg)
-		return a, nil
+		return nil
 	case tickMsg:
 		a.tick++
 		a.noteLoads()
 		if !a.status.at.IsZero() && time.Since(a.status.at) > 6*time.Second {
 			a.status = status{}
 		}
-		return a, tea.Tick(250*time.Millisecond, func(t time.Time) tea.Msg { return tickMsg(t) })
+		return tea.Tick(250*time.Millisecond, func(t time.Time) tea.Msg { return tickMsg(t) })
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			return a, a.quit()
+			return a.quit()
 		}
 	}
 
-	if n := len(a.popups); n > 0 {
-		return a, a.updatePopups(msg)
+	if len(a.popups) > 0 {
+		return a.updatePopups(msg)
 	}
-	if key, ok := msg.(tea.KeyMsg); ok {
-		p := a.page()
-		switch {
-		case a.is(key, "next-view") && !(p.typing() && key.String() != "tab"):
-			a.tab = (a.tab + 1) % tabID(len(tabNames))
-			return a, nil
-		case a.is(key, "prev-view") && !(p.typing() && key.String() != "shift+tab"):
-			a.tab = (a.tab + tabID(len(tabNames)) - 1) % tabID(len(tabNames))
-			return a, nil
-		case p.typing():
-		case a.is(key, "quit"):
-			return a, a.quit()
-		case a.is(key, "help"):
-			a.push(&helpView{})
-			return a, nil
-		case a.is(key, "view-library"):
-			a.tab = tabLibrary
-			return a, nil
-		case a.is(key, "view-discover"):
-			a.tab = tabDiscover
-			return a, nil
-		case a.is(key, "view-activity"):
-			a.tab = tabActivity
-			return a, nil
-		case a.is(key, "view-doctor"):
-			a.tab = tabDoctor
-			return a, nil
-		case a.is(key, "view-profiles"):
-			a.tab = tabProfiles
-			return a, nil
-		case a.is(key, "view-config"):
-			a.tab = tabConfig
-			return a, nil
+	key, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return tea.Batch(a.lib.update(a, msg), a.disc.update(a, msg), a.act.update(a, msg), a.doc.update(a, msg))
+	}
+	p := a.page()
+	switch {
+	case a.is(key, "next-view") && !(p.typing() && key.String() != "tab"):
+		a.tab = (a.tab + 1) % tabID(len(tabNames))
+		return nil
+	case a.is(key, "prev-view") && !(p.typing() && key.String() != "shift+tab"):
+		a.tab = (a.tab + tabID(len(tabNames)) - 1) % tabID(len(tabNames))
+		return nil
+	case p.typing():
+	case a.is(key, "quit"):
+		return a.quit()
+	case a.is(key, "help"):
+		a.push(&helpView{})
+		return nil
+	default:
+		for i, id := range tabKeys {
+			if a.is(key, id) {
+				a.tab = tabID(i)
+				return nil
+			}
 		}
-		return a, p.update(a, msg)
 	}
-	return a, tea.Batch(a.lib.update(a, msg), a.disc.update(a, msg), a.act.update(a, msg), a.doc.update(a, msg))
+	return p.update(a, msg)
 }
 
 func (a *App) updatePopups(msg tea.Msg) tea.Cmd {
@@ -346,10 +347,9 @@ type tabLabel struct {
 }
 
 func (a *App) tabLabels() []tabLabel {
-	keys := [...]string{"view-library", "view-discover", "view-activity", "view-doctor", "view-profiles", "view-config"}
 	out := make([]tabLabel, len(tabNames))
 	for i, name := range tabNames {
-		out[i] = tabLabel{name: name, key: cmp.Or(a.keys.Label(keys[i]), name[:1])}
+		out[i] = tabLabel{name: name, key: cmp.Or(a.keys.Label(tabKeys[i]), name[:1])}
 	}
 	if a.scanned {
 		out[tabLibrary].count, out[tabLibrary].countStyle = fmt.Sprint(len(a.models)), sDim

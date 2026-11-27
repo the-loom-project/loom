@@ -102,20 +102,8 @@ func (d *discover) hints(a *App) string {
 	return a.hints("confirm", "quants & download", "search", "search", "next-page", "next page", "prev-page", "previous", "sort", "sort by", "sort-flip", "flip order", "filter", "filters", "help", "all keys")
 }
 
-func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
-	cmd := d.handle(a, msg)
-	switch msg.(type) {
-	case searchMsg, tea.KeyMsg:
-		return tea.Batch(cmd, d.fetchSizes(a))
-	}
-	return cmd
-}
-
 // fetchSizes looks up the quantization sizes of the rows on screen, a few at a time.
 func (d *discover) fetchSizes(a *App) tea.Cmd {
-	if a.tab != tabDiscover {
-		return nil
-	}
 	var cmds []tea.Cmd
 	for i := d.winFrom; i < min(d.winTo, len(d.results)); i++ {
 		id := d.results[i].ID
@@ -142,7 +130,7 @@ func (d *discover) fetchSizes(a *App) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-func (d *discover) handle(a *App, msg tea.Msg) tea.Cmd {
+func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case sizeMsg:
 		delete(d.fetching, msg.id)
