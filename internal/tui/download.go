@@ -148,14 +148,16 @@ func (a *App) downloadDone(msg dlDoneMsg) tea.Cmd {
 	d.mu.Unlock()
 	switch st {
 	case dlDone:
-		hf.WriteMeta(d.hub, d.repo, d.meta)
+		err := hf.WriteMeta(d.hub, d.repo, d.meta)
 		if d.update {
-			if err := hf.Prune(d.hub, d.repo, d.sha); err != nil {
-				a.complain("Updated %s, but cleaning up the old version failed: %v", d.repo, err)
-			} else {
-				a.say("✓ Updated %s", d.repo)
-			}
-		} else {
+			err = errors.Join(err, hf.Prune(d.hub, d.repo, d.sha))
+		}
+		switch {
+		case err != nil:
+			a.complain("%s:%s is downloaded, but tidying up failed: %v", d.repo, d.quant, err)
+		case d.update:
+			a.say("✓ Updated %s", d.repo)
+		default:
 			a.say("✓ Downloaded %s:%s, it's in your Library", d.repo, d.quant)
 		}
 		a.downloads = without(a.downloads, d)

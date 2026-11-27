@@ -62,9 +62,9 @@ func (p *Profiles) LastProfile(ref string) string {
 	return name
 }
 
-func (p *Profiles) Remember(ref, profile string, c Config) {
+func (p *Profiles) Remember(ref, profile string, c Config) error {
 	p.f.Last[ref] = Last{Profile: profile, Config: c}
-	p.save()
+	return p.save()
 }
 
 func (p *Profiles) Profile(ref, name string) (Config, bool) {
@@ -94,20 +94,20 @@ func (p *Profiles) All() []Entry {
 	return out
 }
 
-func (p *Profiles) Save(ref, name string, c Config) {
+func (p *Profiles) Save(ref, name string, c Config) error {
 	if p.f.Profiles[ref] == nil {
 		p.f.Profiles[ref] = map[string]Config{}
 	}
 	p.f.Profiles[ref][name] = c
-	p.save()
+	return p.save()
 }
 
-func (p *Profiles) Delete(ref, name string) {
+func (p *Profiles) Delete(ref, name string) error {
 	delete(p.f.Profiles[ref], name)
 	if len(p.f.Profiles[ref]) == 0 {
 		delete(p.f.Profiles, ref)
 	}
-	p.save()
+	return p.save()
 }
 
 func (p *Profiles) Rename(ref, from, to string) error {
@@ -124,6 +124,5 @@ func (p *Profiles) Rename(ref, from, to string) error {
 		l.Profile = to
 		p.f.Last[ref] = l
 	}
-	p.save()
-	return nil
+	return p.save()
 }

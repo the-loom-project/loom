@@ -138,7 +138,7 @@ func (v *configView) display(a *App, p opt) string {
 }
 
 func (a *App) saveConfig() {
-	a.cfg.Save()
+	a.failed(a.cfg.Save(), "Couldn't save the config")
 	a.hub.SetTimeout(a.cfg.NetTimeout())
 }
 
@@ -191,9 +191,11 @@ func (v *configView) update(a *App, msg tea.Msg) tea.Cmd {
 		v.sc.move(10, len(v.list))
 	case a.is(key, "reset"):
 		a.push(&confirm{heading: "Reset the config?", text: "Language, editor and everything shown or hidden go back to their defaults.", yes: func(a *App) tea.Cmd {
-			a.cfg.Reset()
+			err := a.cfg.Reset()
 			a.hub.SetTimeout(a.cfg.NetTimeout())
-			a.say("Config reset to defaults")
+			if !a.failed(err, "Couldn't save the config") {
+				a.say("Config reset to defaults")
+			}
 			return nil
 		}})
 	case a.is(key, "top"):

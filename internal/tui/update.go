@@ -52,7 +52,7 @@ func (a *App) latestArrived(msg latestMsg) {
 	}
 	for _, m := range a.models {
 		if m.Repo == msg.id && !a.outdated(m) {
-			hf.WriteMeta(a.st.Hub(), msg.id, meta)
+			a.failed(hf.WriteMeta(a.st.Hub(), msg.id, meta), "Couldn't save the Hub info of "+msg.id)
 			return
 		}
 	}

@@ -72,7 +72,7 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 	case a.is(key, "delete"):
 		e := all[v.sc.cur]
 		a.push(&confirm{heading: "Delete profile " + e.Name + "?", text: "The profile for " + e.Ref + " is removed. The model itself is kept.", yes: func(a *App) tea.Cmd {
-			a.profiles.Delete(e.Ref, e.Name)
+			a.failed(a.profiles.Delete(e.Ref, e.Name), "Couldn't delete the profile")
 			return nil
 		}})
 	}

@@ -142,6 +142,13 @@ func (a *App) complain(format string, args ...any) {
 	a.status = status{text: fmt.Sprintf(format, args...), bad: true, at: time.Now()}
 }
 
+func (a *App) failed(err error, what string) bool {
+	if err != nil {
+		a.complain("%s: %v", what, err)
+	}
+	return err != nil
+}
+
 func (a *App) push(p popup) { a.popups = append(a.popups, p) }
 
 func (a *App) is(msg tea.KeyMsg, actions ...string) bool { return a.keys.Any(msg.String(), actions...) }

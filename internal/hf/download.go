@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"loom/internal/jsonfile"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,18 +45,20 @@ func (c *Client) Download(ctx context.Context, hub, repo, sha string, files []Fi
 	if err := os.MkdirAll(filepath.Join(dir, "refs"), 0o755); err != nil {
 		return err
 	}
-	carryOver(dir, sha)
+	if err := carryOver(dir, sha); err != nil {
+		return err
+	}
 	return os.WriteFile(filepath.Join(dir, "refs", "main"), []byte(sha), 0o644)
 }
 
-func carryOver(dir, sha string) {
+func carryOver(dir, sha string) error {
 	old, err := os.ReadFile(filepath.Join(dir, "refs", "main"))
 	if err != nil || strings.TrimSpace(string(old)) == sha {
-		return
+		return nil
 	}
 	from := filepath.Join(dir, "snapshots", strings.TrimSpace(string(old)))
 	to := filepath.Join(dir, "snapshots", sha)
-	filepath.WalkDir(from, func(p string, d os.DirEntry, err error) error {
+	return filepath.WalkDir(from, func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
@@ -64,11 +67,14 @@ func carryOver(dir, sha string) {
 		if _, err := os.Lstat(link); err == nil {
 			return nil
 		}
-		if target, err := os.Readlink(p); err == nil {
-			os.MkdirAll(filepath.Dir(link), 0o755)
-			os.Symlink(target, link)
+		target, err := os.Readlink(p)
+		if err != nil {
+			return nil
 		}
-		return nil
+		if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+			return err
+		}
+		return os.Symlink(target, link)
 	})
 }
 
@@ -150,10 +156,8 @@ func ReadMeta(hub, repo string) (Meta, bool) {
 	return m, true
 }
 
-func WriteMeta(hub, repo string, m Meta) {
-	if b, err := json.MarshalIndent(m, "", "  "); err == nil {
-		os.WriteFile(filepath.Join(RepoDir(hub, repo), "loom.json"), b, 0o644)
-	}
+func WriteMeta(hub, repo string, m Meta) error {
+	return jsonfile.Write(filepath.Join(RepoDir(hub, repo), "loom.json"), m)
 }
 
 func (c *Client) lock(ctx context.Context, key string) (func(), error) {

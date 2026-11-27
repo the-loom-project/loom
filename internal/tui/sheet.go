@@ -204,8 +204,9 @@ func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	case a.is(key, "edit") && cur.Text:
 		return s, s.edit(cur)
 	case s.saving && (a.is(key, "save") || a.is(key, "confirm") && !cur.Text):
-		a.profiles.Save(s.env.Model.Ref, s.profile, s.cfg)
-		a.say("Saved profile %s", s.profile)
+		if !a.failed(a.profiles.Save(s.env.Model.Ref, s.profile, s.cfg), "Couldn't save the profile") {
+			a.say("Saved profile %s", s.profile)
+		}
 		return nil, nil
 	case s.saving && a.is(key, "run", "copy", "profile"):
 	case a.is(key, "editor"):
@@ -213,7 +214,9 @@ func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	case a.is(key, "save"):
 		p, cmd := newNamePrompt("Save as profile", s.profile, func(a *App, name string) {
 			_, existed := a.profiles.Profile(s.env.Model.Ref, name)
-			a.profiles.Save(s.env.Model.Ref, name, s.cfg)
+			if a.failed(a.profiles.Save(s.env.Model.Ref, name, s.cfg), "Couldn't save the profile") {
+				return
+			}
 			s.profile = name
 			if existed {
 				a.say("Replaced profile %s", name)
@@ -273,7 +276,7 @@ func (s *sheet) edit(cur llama.Setting) tea.Cmd {
 }
 
 func (s *sheet) run(a *App) tea.Cmd {
-	a.profiles.Remember(s.env.Model.Ref, s.profile, s.cfg)
+	a.failed(a.profiles.Remember(s.env.Model.Ref, s.profile, s.cfg), "Couldn't remember these settings")
 	cfg := s.cfg.Fix(s.env)
 	if cfg.Mode == llama.Chat {
 		cmd := llama.Build(s.env, cfg)
