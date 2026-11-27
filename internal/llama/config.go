@@ -2,7 +2,6 @@ package llama
 
 import (
 	"strconv"
-	"strings"
 
 	"loom/internal/gguf"
 	"loom/internal/hw"
@@ -86,43 +85,3 @@ func (c Config) Fix(e Env) Config {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
-
-// LoomArgs is the `loom run` command that reproduces c, written as changes
-// from base: the defaults, or the named profile when profile is set.
-func (c Config) LoomArgs(e Env, base Config, profile string) []string {
-	d := base
-	short := map[string]string{"mode": "--chat", "tools": "--tools", "listen": "--lan", "offload": "--cpu", "context": "--ctx", "port": "--port"}
-	out := []string{"loom", "run", shellWord(e.Model.Ref)}
-	if profile != "" {
-		out = append(out, "--profile", profile)
-	}
-	for _, st := range AllSettings {
-		if st.ID == "extra" || st.Get(c) == st.Get(d) || !st.IsVisible(e, c) {
-			continue
-		}
-		v := st.Get(c)
-		switch {
-		case st.ID == "mode" && v == string(Chat), st.ID == "tools" && v == "true", st.ID == "listen" && v == "network", st.ID == "offload" && v == "cpu":
-			out = append(out, short[st.ID])
-		case (st.ID == "context" || st.ID == "port") && v != "0":
-			out = append(out, short[st.ID], v)
-		default:
-			out = append(out, "--set", st.ID+"="+v)
-		}
-	}
-	if extra := strings.Fields(c.Extra); len(extra) > 0 {
-		out = append(out, "--")
-		out = append(out, extra...)
-	}
-	return out
-}
-
-func shellWord(s string) string { return shellQuote(s) }
-
-func Shell(words []string) string {
-	q := make([]string, len(words))
-	for i, w := range words {
-		q[i] = shellQuote(w)
-	}
-	return strings.Join(q, " ")
-}

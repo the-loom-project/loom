@@ -63,12 +63,12 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 		})
 		a.push(p)
 		return cmd
-	case a.is(key, "copy"), a.is(key, "copy-raw"):
+	case a.is(key, "copy"):
 		e := all[v.sc.cur]
 		m, _ := a.model(e.Ref)
 		env := a.env(m)
 		cfg, _ := a.profiles.Profile(e.Ref, e.Name)
-		a.copyCommand(env, cfg, e.Name, a.is(key, "copy-raw"))
+		a.copyCommand(llama.Build(env, cfg.Fix(env)))
 	case a.is(key, "delete"):
 		e := all[v.sc.cur]
 		a.push(&confirm{heading: "Delete profile " + e.Name + "?", text: "The profile for " + e.Ref + " is removed. The model itself is kept.", yes: func(a *App) tea.Cmd {

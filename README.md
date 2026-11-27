@@ -45,7 +45,7 @@ Six views, switched with `←` `→`, `tab` or `1`-`6`. `?` lists all keys.
 | Profiles | Saved launch settings per model. `r` launches, `enter` edits, `e` renames.                                                           |
 | Config   | loom's own options: editor, key hints, warnings, table columns. `d` resets.                                                          |
 
-The launch sheet shows each choice next to the llama.cpp flag it produces. `s` saves its settings as a named profile, `p` loads one, and `loom run <model> --profile <name>` uses it. `E` edits the launch flags in your editor (changed or added lines become extra flags) (`$VISUAL`, `$EDITOR`, or set one in Config) in this terminal. `y` copies the `loom run` command, `Y` the plain llama.cpp one. Agent tools are off by default.
+The launch sheet shows each choice next to the llama.cpp flag it produces. `s` saves its settings as a named profile, `p` loads one, and `loom run <model> --profile <name>` uses it. `E` edits the launch flags in your editor (changed or added lines become extra flags) (`$VISUAL`, `$EDITOR`, or set one in Config) in this terminal. `y` copies the llama.cpp command. Agent tools are off by default.
 
 ## Configuration
 

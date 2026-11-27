@@ -152,7 +152,7 @@ func (s *sheet) hints(a *App) string {
 	if s.saving {
 		return a.hints("save", "save", "left", "change", "editor", "flags in editor", "reset", "defaults", "back", "discard")
 	}
-	return a.hints("run", "run", "left", "change", "editor", "flags in editor", "profile", "profile", "save", "save profile", "reset", "defaults", "copy", "copy cmd", "back", "close")
+	return a.hints("run", "run", "left", "change", "editor", "flags in editor", "profile", "profile", "save", "save profile", "reset", "defaults", "copy", "copy command", "back", "close")
 }
 
 func (s *sheet) size(a *App) (int, int) { return min(a.w-8, 170), min(a.h-6, 46) }
@@ -207,7 +207,7 @@ func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		a.profiles.Save(s.env.Model.Ref, s.profile, s.cfg)
 		a.say("Saved profile %s", s.profile)
 		return nil, nil
-	case s.saving && a.is(key, "run", "copy", "copy-raw", "profile"):
+	case s.saving && a.is(key, "run", "copy", "profile"):
 	case a.is(key, "editor"):
 		return s, s.editFlags(a)
 	case a.is(key, "save"):
@@ -227,8 +227,8 @@ func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		return s, s.pickProfile(a)
 	case a.is(key, "reset"):
 		s.cfg = llama.Defaults().Fix(s.env)
-	case a.is(key, "copy"), a.is(key, "copy-raw"):
-		a.copyCommand(s.env, s.cfg, s.profile, a.is(key, "copy-raw"))
+	case a.is(key, "copy"):
+		a.copyCommand(llama.Build(s.env, s.cfg.Fix(s.env)))
 	case a.is(key, "confirm"):
 		if cur.Text {
 			return s, s.edit(cur)

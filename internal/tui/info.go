@@ -19,7 +19,7 @@ type infoView struct {
 func (v *infoView) title(a *App) string { return v.model.Name() }
 
 func (v *infoView) hints(a *App) string {
-	return a.hints("confirm", "configure & run", "copy", "copy loom cmd", "copy-raw", "copy llama cmd", "back", "close")
+	return a.hints("confirm", "configure & run", "copy", "copy command", "back", "close")
 }
 
 func (v *infoView) size(a *App) (int, int) {
@@ -39,9 +39,9 @@ func (v *infoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		v.sc.move(-1, 100)
 	case a.is(key, "down"):
 		v.sc.move(1, 100)
-	case a.is(key, "copy"), a.is(key, "copy-raw"):
+	case a.is(key, "copy"):
 		env := a.env(v.model)
-		a.copyCommand(env, a.profiles.Get(env), a.profiles.LastProfile(env.Model.Ref), a.is(key, "copy-raw"))
+		a.copyCommand(llama.Build(env, a.profiles.Get(env)))
 	case a.is(key, "confirm"):
 		m := v.model
 		return nil, a.openSheet(m, false)

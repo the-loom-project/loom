@@ -37,12 +37,14 @@ func (c Command) Argv() []string {
 	return out
 }
 
-func (c Command) Line() string {
-	parts := []string{c.Bin}
-	for _, w := range c.Argv() {
-		parts = append(parts, shellQuote(w))
+func (c Command) Line() string { return Shell(append([]string{c.Bin}, c.Argv()...)) }
+
+func Shell(words []string) string {
+	q := make([]string, len(words))
+	for i, w := range words {
+		q[i] = shellQuote(w)
 	}
-	return strings.Join(parts, " ")
+	return strings.Join(q, " ")
 }
 
 func shellQuote(s string) string {

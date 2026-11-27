@@ -218,9 +218,9 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 		return a.openSheet(*e.model, false)
 	case a.is(key, "run"):
 		return a.openSheet(*e.model, true)
-	case a.is(key, "copy"), a.is(key, "copy-raw"):
+	case a.is(key, "copy"):
 		env := a.env(*e.model)
-		a.copyCommand(env, a.profiles.Get(env), a.profiles.LastProfile(env.Model.Ref), a.is(key, "copy-raw"))
+		a.copyCommand(llama.Build(env, a.profiles.Get(env)))
 	}
 	return nil
 }
@@ -380,14 +380,6 @@ func (a *App) openSheet(m store.Model, runNow bool) tea.Cmd {
 	return nil
 }
 
-func (a *App) copyCommand(e llama.Env, c llama.Config, profile string, raw bool) {
-	base := llama.Defaults().Fix(e)
-	if p, ok := a.profiles.Profile(e.Model.Ref, profile); ok {
-		base = p.Fix(e)
-	}
-	text, what := llama.Shell(c.LoomArgs(e, base, profile)), "loom command"
-	if raw {
-		text, what = llama.Build(e, c.Fix(e)).Line(), "llama.cpp command"
-	}
-	a.say("Copied the %s (%s)", what, clipboard.Copy(text))
+func (a *App) copyCommand(cmd llama.Command) {
+	a.say("Copied the llama.cpp command (%s)", clipboard.Copy(cmd.Line()))
 }

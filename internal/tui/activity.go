@@ -30,7 +30,7 @@ func (v *activity) items(a *App) []*llama.Instance {
 }
 
 func (v *activity) hints(a *App) string {
-	return a.hints("confirm", "details", "open", "open in browser", "log-up", "scroll log", "delete", "stop", "copy", "copy cmd", "help", "all keys")
+	return a.hints("confirm", "details", "open", "open in browser", "log-up", "scroll log", "delete", "stop", "copy", "copy command", "help", "all keys")
 }
 
 func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
@@ -75,9 +75,9 @@ func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
 			}
 		case a.is(msg, "delete"):
 			v.remove(a, cur)
-		case a.is(msg, "copy"), a.is(msg, "copy-raw"):
+		case a.is(msg, "copy"):
 			if cur != nil {
-				a.copyCommand(llama.Env{Model: cur.Model, HW: a.hw}, cur.Config, "", a.is(msg, "copy-raw"))
+				a.copyCommand(cur.Command)
 			}
 		}
 	}
