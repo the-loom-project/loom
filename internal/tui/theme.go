@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -144,24 +145,36 @@ func hideColumns(cols []column, hidden func(id string) bool) []column {
 	return cols
 }
 
+const minFlex = 10
+
 func newTable(total int, cols ...column) table {
 	tb := table{cols: cols, widths: make([]int, len(cols)), total: total}
-	used, shown := 1, 0
-	flex := -1
+	flex := slices.IndexFunc(cols, func(c column) bool { return c.w == 0 })
+	shown := make([]bool, len(cols))
 	for i, c := range cols {
-		if total < c.min {
-			continue
-		}
-		shown++
-		tb.widths[i] = c.w
-		if c.w == 0 {
-			flex = i
-		}
-		used += c.w
+		shown[i] = total >= c.min
 	}
-	used += 2 * (shown - 1)
-	if flex >= 0 {
-		tb.widths[flex] = max(10, total-used-1)
+	fixed := func() int {
+		n := 2
+		for i, c := range cols {
+			if shown[i] {
+				n += c.w + 2
+			}
+		}
+		return n - 2
+	}
+	for i := len(cols) - 1; i > 0 && fixed()+minFlex > total; i-- {
+		if i != flex {
+			shown[i] = false
+		}
+	}
+	for i, c := range cols {
+		if shown[i] {
+			tb.widths[i] = c.w
+		}
+	}
+	if flex >= 0 && shown[flex] {
+		tb.widths[flex] = max(minFlex, total-fixed())
 	}
 	return tb
 }
