@@ -39,6 +39,7 @@ func (a *App) checkLatest() tea.Cmd {
 
 func (a *App) latestArrived(msg latestMsg) {
 	if msg.repo == nil {
+		delete(a.checked, msg.id)
 		return
 	}
 	a.latest[msg.id] = msg.repo

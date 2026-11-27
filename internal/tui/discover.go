@@ -26,7 +26,8 @@ type discover struct {
 	err     error
 	seq     int
 
-	tasks []hf.Task
+	tasks       []hf.Task
+	wantsFilter bool
 	f     hf.Filters
 	urls  []string
 	page  int
@@ -63,11 +64,13 @@ func newDiscover() *discover {
 	return &discover{input: ti, loading: true, f: hf.DefaultFilters(), sizes: map[string]sizeRange{}, fetching: map[string]bool{}, gate: make(chan struct{}, 4)}
 }
 
-func (d *discover) init(a *App) tea.Cmd {
-	return tea.Batch(d.search(a), func() tea.Msg {
+func (d *discover) init(a *App) tea.Cmd { return tea.Batch(d.search(a), d.loadTasks(a)) }
+
+func (d *discover) loadTasks(a *App) tea.Cmd {
+	return func() tea.Msg {
 		tasks, _ := a.hub.Tasks(context.Background())
 		return tasksMsg{tasks}
-	})
+	}
 }
 
 func (d *discover) typing() bool { return d.typingQ }
@@ -137,6 +140,10 @@ func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
 		d.sizes[msg.id] = msg.sizeRange
 	case tasksMsg:
 		d.tasks = msg.tasks
+		if d.wantsFilter {
+			d.wantsFilter = false
+			d.openFilters(a)
+		}
 	case searchMsg:
 		if msg.seq != d.seq {
 			return nil
@@ -277,12 +284,12 @@ func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 	case a.is(msg, "search"):
 		d.typingQ = true
 		return d.input.Focus()
+	case a.is(msg, "filter") && len(d.tasks) == 0:
+		d.wantsFilter = true
+		a.say("Loading the Hub's task list…")
+		return d.loadTasks(a)
 	case a.is(msg, "filter"):
-		if len(d.tasks) == 0 {
-			a.complain("The Hub's task list isn't available (offline?)")
-			return nil
-		}
-		a.push(newFilterForm(d.f, d.tasks))
+		d.openFilters(a)
 	case a.is(msg, "back"):
 		if d.input.Value() != "" || d.f != hf.DefaultFilters() {
 			d.input.SetValue("")
@@ -299,6 +306,14 @@ func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 }
 
 // find searches for a repo and opens its page, e.g. from a model in the Library.
+func (d *discover) openFilters(a *App) {
+	if len(d.tasks) == 0 {
+		a.complain("The Hub's task list isn't available (offline?)")
+		return
+	}
+	a.push(newFilterForm(d.f, d.tasks))
+}
+
 func (d *discover) find(a *App, repo string) tea.Cmd {
 	_, name, _ := strings.Cut(repo, "/")
 	d.input.SetValue(name)
