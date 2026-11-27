@@ -143,6 +143,8 @@ func ask(q string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "y")
 }
 
+var errAmbiguous = errors.New("is ambiguous")
+
 func resolve(models []store.Model, q string) (store.Model, error) {
 	m, candidates := store.Find(models, q)
 	switch {
@@ -155,7 +157,7 @@ func resolve(models []store.Model, q string) (store.Model, error) {
 	for _, c := range candidates {
 		names = append(names, c.Ref)
 	}
-	return m, fmt.Errorf("%q is ambiguous: %s", q, strings.Join(names, ", "))
+	return m, fmt.Errorf("%q %w: %s", q, errAmbiguous, strings.Join(names, ", "))
 }
 
 func pull(st *store.Store, hub *hf.Client, args []string) error {
@@ -267,7 +269,7 @@ func run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, args []strin
 	models, _ := st.Scan()
 	m, err := resolve(models, name)
 	if err != nil {
-		if _, _, isRef := hf.ParseRef(name); !isRef || strings.Contains(err.Error(), "ambiguous") {
+		if _, _, isRef := hf.ParseRef(name); !isRef || errors.Is(err, errAmbiguous) {
 			return err
 		}
 		if m, err = fetch(st, hub, name); err != nil {
