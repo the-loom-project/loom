@@ -2,11 +2,12 @@ package llama
 
 import (
 	"fmt"
-	"loom/internal/jsonfile"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"loom/internal/jsonfile"
 )
 
 // Last is what a model was last run with, and the profile it started from.

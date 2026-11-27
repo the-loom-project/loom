@@ -1,12 +1,13 @@
 package config
 
 import (
-	"loom/internal/jsonfile"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
+
+	"loom/internal/jsonfile"
 )
 
 type Language struct{ Code, Name string }
