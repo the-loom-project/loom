@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -26,6 +28,48 @@ type sheet struct {
 }
 
 type chatDoneMsg struct{ err error }
+
+type editorDoneMsg struct {
+	s    *sheet
+	path string
+	err  error
+}
+
+const flagsHeader = "# Extra llama.cpp flags. Lines starting with # are ignored, and line breaks are fine.\n# `llama-server --help` lists them all.\n"
+
+// editFlags opens the extra flags in the user's editor, in this terminal.
+func (s *sheet) editFlags(a *App) tea.Cmd {
+	f, err := os.CreateTemp("", "loom-flags-*.txt")
+	if err != nil {
+		a.complain("%v", err)
+		return nil
+	}
+	f.WriteString(flagsHeader + s.cfg.Extra + "\n")
+	f.Close()
+	argv := a.cfg.EditorCmd()
+	cmd := exec.Command(argv[0], append(argv[1:], f.Name())...)
+	return tea.ExecProcess(cmd, func(err error) tea.Msg { return editorDoneMsg{s, f.Name(), err} })
+}
+
+func (s *sheet) flagsEdited(a *App, m editorDoneMsg) {
+	data, err := os.ReadFile(m.path)
+	os.Remove(m.path)
+	if m.err != nil {
+		a.complain("Couldn't run the editor (%s): %v", a.cfg.EditorCmd()[0], m.err)
+		return
+	}
+	if err != nil {
+		a.complain("%v", err)
+		return
+	}
+	var words []string
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "#") {
+			words = append(words, strings.Fields(line)...)
+		}
+	}
+	s.cfg.Extra = strings.Join(words, " ")
+}
 
 func newSheet(a *App, m store.Model) *sheet {
 	env := a.env(m)
@@ -79,14 +123,18 @@ func (s *sheet) hints(a *App) string {
 		return a.hints("confirm", "accept", "back", "cancel")
 	}
 	if s.saving {
-		return a.hints("save", "save", "left", "change", "reset", "defaults", "back", "discard")
+		return a.hints("save", "save", "left", "change", "editor", "flags in editor", "reset", "defaults", "back", "discard")
 	}
-	return a.hints("run", "run", "left", "change", "profile", "profile", "save", "save profile", "reset", "defaults", "copy", "copy cmd", "back", "close")
+	return a.hints("run", "run", "left", "change", "editor", "flags in editor", "profile", "profile", "save", "save profile", "reset", "defaults", "copy", "copy cmd", "back", "close")
 }
 
 func (s *sheet) size(a *App) (int, int) { return 124, 36 }
 
 func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
+	if m, ok := msg.(editorDoneMsg); ok && m.s == s {
+		s.flagsEdited(a, m)
+		return s, nil
+	}
 	key, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return s, nil
@@ -133,6 +181,8 @@ func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		a.say("Saved profile %s", s.profile)
 		return nil, nil
 	case s.saving && a.is(key, "run", "copy", "copy-raw", "profile"):
+	case a.is(key, "editor"):
+		return s, s.editFlags(a)
 	case a.is(key, "save"):
 		p, cmd := newNamePrompt("Save as profile", s.profile, func(a *App, name string) {
 			_, existed := a.profiles.Profile(s.env.Model.Ref, name)
@@ -161,6 +211,13 @@ func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		return nil, s.run(a)
 	}
 	return s, nil
+}
+
+func (s *sheet) notes(a *App) []llama.Note {
+	if !a.cfg.Warnings {
+		return nil
+	}
+	return llama.Notes(s.env, s.cfg)
 }
 
 func (s *sheet) pickProfile(a *App) tea.Cmd {
@@ -314,8 +371,10 @@ func (s *sheet) left(a *App, w, h int, stacked bool) []string {
 		foot = append(foot, " "+sBad.Render(s.errText))
 	}
 	foot = append(foot, "")
-	foot = append(foot, s.memory(a, w)...)
-	for _, n := range llama.Notes(s.env, s.cfg) {
+	if a.cfg.MemoryEstimate {
+		foot = append(foot, s.memory(a, w)...)
+	}
+	for _, n := range s.notes(a) {
 		st := sWarn
 		if n.Danger {
 			st = sBad

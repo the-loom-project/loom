@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"loom/internal/config"
 	"loom/internal/gguf"
 	"loom/internal/hf"
 	"loom/internal/hw"
@@ -36,7 +37,7 @@ func Main(args []string) int {
 	}
 	switch cmd {
 	case "":
-		err = tui.Run(st, hub, profiles, km)
+		err = tui.Run(st, hub, profiles, km, config.Load())
 	case "run":
 		err = run(st, hub, profiles, args)
 	case "pull":

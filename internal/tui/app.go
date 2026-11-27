@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"loom/internal/config"
 	"loom/internal/hf"
 	"loom/internal/hw"
 	"loom/internal/keys"
@@ -25,9 +26,10 @@ const (
 	tabActivity
 	tabDoctor
 	tabProfiles
+	tabConfig
 )
 
-var tabNames = [...]string{"Library", "Discover", "Activity", "Doctor", "Profiles"}
+var tabNames = [...]string{"Library", "Discover", "Activity", "Doctor", "Profiles", "Config"}
 
 type page interface {
 	update(a *App, msg tea.Msg) tea.Cmd
@@ -41,6 +43,7 @@ type App struct {
 	hub      *hf.Client
 	profiles *llama.Profiles
 	keys     *keys.Map
+	cfg      *config.Config
 
 	hw      hw.Hardware
 	hwKnown bool
@@ -55,6 +58,7 @@ type App struct {
 	act    *activity
 	doc    *doctor
 	prof   *profilesView
+	conf   *configView
 	popups []popup
 
 	downloads []*download
@@ -71,10 +75,10 @@ type status struct {
 	at   time.Time
 }
 
-func Run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, km *keys.Map) error {
-	a := &App{st: st, hub: hub, profiles: profiles, keys: km, nextID: 1}
+func Run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, km *keys.Map, cfg *config.Config) error {
+	a := &App{st: st, hub: hub, profiles: profiles, keys: km, cfg: cfg, nextID: 1}
 	a.lib, a.disc, a.act, a.doc = newLibrary(), newDiscover(), newActivity(), &doctor{}
-	a.prof = &profilesView{}
+	a.prof, a.conf = &profilesView{}, newConfigView()
 	if len(km.Problems) > 0 {
 		a.complain("%s", km.Problems[0])
 	}
@@ -159,6 +163,8 @@ func (a *App) page() page {
 		return a.doc
 	case tabProfiles:
 		return a.prof
+	case tabConfig:
+		return a.conf
 	}
 	return a.act
 }
@@ -218,6 +224,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		case a.is(key, "view-profiles"):
 			a.tab = tabProfiles
+			return a, nil
+		case a.is(key, "view-config"):
+			a.tab = tabConfig
 			return a, nil
 		}
 		return a, p.update(a, msg)
@@ -362,7 +371,7 @@ func (a *App) liveCount() int {
 
 func (a *App) footer() string {
 	hints := " " + a.page().hints(a)
-	if len(a.popups) > 0 {
+	if len(a.popups) > 0 || !a.cfg.KeyHints {
 		hints = ""
 	}
 	if a.status.text == "" {

@@ -121,6 +121,7 @@ type seg struct {
 func t(text string, st lipgloss.Style) seg { return seg{text, st} }
 
 type column struct {
+	id    string
 	title string
 	w     int
 	right bool
@@ -131,6 +132,16 @@ type table struct {
 	cols   []column
 	widths []int
 	total  int
+}
+
+// hideColumns drops the columns whose id is hidden in the config.
+func hideColumns(cols []column, hidden func(id string) bool) []column {
+	for i, c := range cols {
+		if c.id != "" && hidden(c.id) {
+			cols[i].min = 1 << 30
+		}
+	}
+	return cols
 }
 
 func newTable(total int, cols ...column) table {

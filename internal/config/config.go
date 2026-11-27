@@ -1,0 +1,89 @@
+package config
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+)
+
+type Language struct{ Code, Name string }
+
+var Languages = []Language{{"en", "English"}}
+
+type Config struct {
+	Language       string   `json:"language"`
+	Editor         string   `json:"editor"`
+	KeyHints       bool     `json:"key_hints"`
+	MemoryEstimate bool     `json:"memory_estimate"`
+	Warnings       bool     `json:"warnings"`
+	HideLibrary    []string `json:"hide_library_columns"`
+	HideDiscover   []string `json:"hide_discover_columns"`
+
+	path string
+}
+
+func Defaults() *Config {
+	return &Config{Language: "en", KeyHints: true, MemoryEstimate: true, Warnings: true}
+}
+
+// Reset puts every option back to its default and saves.
+func (c *Config) Reset() {
+	path := c.path
+	*c = *Defaults()
+	c.path = path
+	c.Save()
+}
+
+func Path() string {
+	dir, _ := os.UserConfigDir()
+	return filepath.Join(dir, "loom", "config.json")
+}
+
+func Load() *Config {
+	c := Defaults()
+	c.path = Path()
+	if b, err := os.ReadFile(c.path); err == nil {
+		json.Unmarshal(b, c)
+	}
+	if !slices.ContainsFunc(Languages, func(l Language) bool { return l.Code == c.Language }) {
+		c.Language = Languages[0].Code
+	}
+	return c
+}
+
+func (c *Config) Save() {
+	if b, err := json.MarshalIndent(c, "", "  "); err == nil {
+		os.MkdirAll(filepath.Dir(c.path), 0o755)
+		os.WriteFile(c.path, b, 0o644)
+	}
+}
+
+// EditorCmd returns the command that opens a file for editing: the configured
+// editor, else $VISUAL, else $EDITOR, else vi.
+func (c *Config) EditorCmd() []string {
+	for _, e := range []string{c.Editor, os.Getenv("VISUAL"), os.Getenv("EDITOR"), "vi"} {
+		if f := strings.Fields(e); len(f) > 0 {
+			return f
+		}
+	}
+	return nil
+}
+
+func (c *Config) hidden(view string) *[]string {
+	if view == "library" {
+		return &c.HideLibrary
+	}
+	return &c.HideDiscover
+}
+
+func (c *Config) Hidden(view, column string) bool { return slices.Contains(*c.hidden(view), column) }
+
+func (c *Config) SetHidden(view, column string, hide bool) {
+	list := c.hidden(view)
+	*list = slices.DeleteFunc(*list, func(s string) bool { return s == column })
+	if hide {
+		*list = append(*list, column)
+	}
+}

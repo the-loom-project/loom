@@ -34,18 +34,18 @@ loom help run          options of a command
 
 ## Interface
 
-Five views, switched with `←` `→`, `tab` or `1`-`5`. `?` lists all keys.
+Six views, switched with `←` `→`, `tab` or `1`-`6`. `?` lists all keys.
 
-| View     | What it does                                                             |
-| -------- | ------------------------------------------------------------------------ |
-| Library  | Downloaded models with GPU fit. `enter` runs, `i` details, `/` search.   |
-| Discover | Search Hugging Face, see quant sizes and GPU fit. `u` shows unrunnable.  |
-| Activity | Downloads and running servers, with the selected server's log.           |
-| Profiles | Saved launch settings per model. `r` runs, `enter` edits, `e` renames.   |
-| Doctor   | Health checks for llama.cpp, GPU, memory, disk and token. `r` rechecks.  |
+| View     | What it does                                                                                                                         |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Library  | Downloaded models with GPU fit. `enter` runs, `i` details, `/` search. |
+| Discover | Search Hugging Face, see quant sizes and GPU fit. `u` shows unrunnable.                                                              |
+| Activity | Downloads and running servers, with the selected server's log.                                                                       |
+| Doctor   | Health checks for llama.cpp, GPU, memory, disk and token. `r` rechecks.                                                              |
+| Profiles | Saved launch settings per model. `r` runs, `enter` edits, `e` renames.                                                           |
+| Config   | loom's own options: editor, key hints, warnings, table columns. `d` resets.                                                          |
 
-The launch sheet shows each choice next to the llama.cpp flag it produces. `s` saves its settings as a named profile, `p` loads one, and `loom run <model> --profile <name>` uses it. `y` copies the `loom run` command, `Y` the
-plain llama.cpp one. Agent tools are off by default.
+The launch sheet shows each choice next to the llama.cpp flag it produces. `s` saves its settings as a named profile, `p` loads one, and `loom run <model> --profile <name>` uses it. `E` edits the extra flags in your editor (`$VISUAL`, `$EDITOR`, or set one in Config) in this terminal. `y` copies the `loom run` command, `Y` the plain llama.cpp one. Agent tools are off by default.
 
 ## Configuration
 
@@ -53,6 +53,7 @@ plain llama.cpp one. Agent tools are off by default.
 | ---------------- | ----------------------------------------------------------------------------- |
 | Models           | `~/.local/share/loom/models/` (or `$LOOM_MODELS`)                             |
 | Profiles         | `~/.config/loom/profiles.json`                                                |
+| Interface        | `~/.config/loom/config.json`, edited in the Config view                       |
 | Key bindings     | `~/.config/loom/keys.conf`, start from `loom keys > ~/.config/loom/keys.conf` |
 | Fish completions | `loom completion fish > ~/.config/fish/completions/loom.fish`                 |
 | Gated models     | set `HF_TOKEN`                                                                |

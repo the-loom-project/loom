@@ -236,15 +236,15 @@ func (l *library) view(a *App, w, h int) []string {
 		lines = append(lines, " "+sDim.Render("Showing ")+strings.Join(f, sDim.Render(" · ")), "")
 	}
 
-	tb := newTable(w,
-		column{title: "NAME"},
-		column{title: "PARAMS", w: 7, right: true},
-		column{title: "QUANT", w: 10, min: 90},
-		column{title: "SIZE", w: 8, right: true},
-		column{title: "CTX", w: 6, right: true, min: 80},
-		column{title: "TYPE", w: 12},
-		column{title: "GPU", w: 14},
-	)
+	tb := newTable(w, hideColumns([]column{
+		{title: "NAME"},
+		{id: "params", title: "PARAMS", w: 7, right: true},
+		{id: "quant", title: "QUANT", w: 10, min: 90},
+		{id: "size", title: "SIZE", w: 8, right: true},
+		{id: "context", title: "CTX", w: 6, right: true, min: 80},
+		{id: "type", title: "TYPE", w: 12},
+		{id: "gpu", title: "GPU", w: 14},
+	}, func(id string) bool { return a.cfg.Hidden("library", id) })...)
 	lines = append(lines, tb.header())
 	es := l.entries(a)
 	if len(es) == 0 {
