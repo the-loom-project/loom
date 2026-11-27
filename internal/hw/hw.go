@@ -21,7 +21,7 @@ type Device struct {
 }
 
 func (d Device) Short() string {
-	n := regexp.MustCompile(`\s*\([^)]*\)`).ReplaceAllString(d.Name, "")
+	n := parenRe.ReplaceAllString(d.Name, "")
 	for _, p := range []string{"AMD ", "Radeon ", "NVIDIA ", "GeForce ", "Intel(R) ", "Arc(TM) "} {
 		n = strings.TrimPrefix(n, p)
 	}
@@ -52,6 +52,7 @@ func (h Hardware) VRAM(id string) int64 {
 }
 
 var (
+	parenRe   = regexp.MustCompile(`\s*\([^)]*\)`)
 	deviceRe  = regexp.MustCompile(`^\s*(\S+): (.+) \((\d+) MiB, (\d+) MiB free\)\s*$`)
 	versionRe = regexp.MustCompile(`build (\d+)`)
 )
