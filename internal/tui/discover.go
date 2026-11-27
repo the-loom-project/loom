@@ -309,22 +309,18 @@ func (d *discover) open(a *App) tea.Cmd {
 }
 
 func (d *discover) view(a *App, w, h int) []string {
-	search := sDim.Render(a.keys.Label("search")) + sDim.Render("  ") + d.input.View()
-	if d.typingQ {
-		d.input.Width = w - 14
-		search = sAccent.Render("search") + sDim.Render("  ") + d.input.View()
-	} else if d.input.Value() == "" {
-		search = sDim.Render(a.keys.Label("search") + "  to search by name")
+	lines := []string{""}
+	if line, ok := searchLine(&d.input, d.typingQ, w); ok {
+		lines = append(lines, line)
 	}
-	filter := sDim.Render(a.keys.Label("filter") + "  to filter by task (multimodal, audio, …)")
 	if d.task.ID != "" {
-		filter = sAccent.Render("filter") + "  " + sDim.Render(groupLabel(d.task.Group)+" › ") + sBold.Render(d.task.Label)
+		lines = append(lines, filterLine(sDim.Render(groupLabel(d.task.Group)+" › ")+sBold.Render(d.task.Label)))
 	}
-	scope := sDim.Render(a.keys.Label("unsupported") + "  to also show models llama.cpp can't run")
 	if d.all {
-		scope = sAccent.Render("all models") + "  " + sDim.Render("including ones llama.cpp can't run, marked in red · "+a.keys.Label("unsupported")+" to hide them")
+		lines = append(lines, " "+sAccent.Render("all models")+"  "+sDim.Render("including ones llama.cpp can't run, marked in red · "+a.keys.Label("unsupported")+" to hide them"))
 	}
-	lines := []string{"", " " + fit(search, w-2), " " + filter, " " + scope, ""}
+	lines = append(lines, "")
+	titleRow := len(lines) - 1
 
 	switch {
 	case d.err != nil:
@@ -350,7 +346,7 @@ func (d *discover) view(a *App, w, h int) []string {
 	if d.loading {
 		title += "  " + spin(a.tick)
 	}
-	lines[4] = " " + sDim.Render(title)
+	lines[titleRow] = " " + sDim.Render(title)
 
 	tb := newTable(w, hideColumns([]column{
 		{id: "name", title: "  NAME"},

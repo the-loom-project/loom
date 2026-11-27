@@ -34,7 +34,7 @@ var libraryKinds = []option{
 
 func newLibrary() *library {
 	ti := textinput.New()
-	ti.Prompt = "/ "
+	ti.Prompt = ""
 	ti.Placeholder = "filter by name"
 	return &library{query: ti}
 }
@@ -257,23 +257,14 @@ func (l *library) view(a *App, w, h int) []string {
 			sDim.Render("  Tip: Q4_K_M is the usual quality/size sweet spot; loom marks what fits your GPU.")}
 	}
 
-	var lines []string
-	if l.searching || l.query.Value() != "" || l.kind != "" {
-		var f []string
-		if l.kind != "" {
-			for _, o := range libraryKinds {
-				if o.value == l.kind {
-					f = append(f, sAccent.Render(o.label))
-				}
-			}
+	lines := []string{""}
+	if line, ok := searchLine(&l.query, l.searching, w); ok {
+		lines = append(lines, line)
+	}
+	for _, o := range libraryKinds {
+		if l.kind != "" && o.value == l.kind {
+			lines = append(lines, filterLine(sBold.Render(o.label)))
 		}
-		if l.searching {
-			l.query.Width = w - 6
-			f = append(f, l.query.View())
-		} else if l.query.Value() != "" {
-			f = append(f, sDim.Render("“"+l.query.Value()+"”"))
-		}
-		lines = append(lines, " "+sDim.Render("Showing ")+strings.Join(f, sDim.Render(" · ")), "")
 	}
 
 	tb := newTable(w, hideColumns([]column{
