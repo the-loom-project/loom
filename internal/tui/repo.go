@@ -77,6 +77,10 @@ func (r *repoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 			r.sc.move(-8, len(r.quants))
 		case a.is(msg, "page-down"):
 			r.sc.move(8, len(r.quants))
+		case a.is(msg, "top"):
+			r.sc.cur = 0
+		case a.is(msg, "bottom"):
+			r.sc.cur = max(0, len(r.quants)-1)
 		case a.is(msg, "open"):
 			a.openBrowser("https://huggingface.co/" + r.id)
 		case a.is(msg, "confirm"):

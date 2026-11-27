@@ -59,6 +59,10 @@ func (p *picker) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		p.sc.move(-1, len(p.options))
 	case a.is(key, "down"):
 		p.sc.move(1, len(p.options))
+	case a.is(key, "top"):
+		p.sc.cur = 0
+	case a.is(key, "bottom"):
+		p.sc.cur = len(p.options) - 1
 	case a.is(key, "back", "quit"):
 		return nil, nil
 	case a.is(key, "confirm", "right"):
@@ -69,14 +73,15 @@ func (p *picker) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 
 func (p *picker) body(a *App, w, h int) []string {
 	lines := []string{""}
-	for i, o := range p.options {
-		lw := p.labelWidth()
-		row := " " + fit(o.label, lw) + sDim.Render(o.help)
+	lw := p.labelWidth()
+	from, to := p.sc.window(len(p.options), max(1, h-1))
+	for i := from; i < to; i++ {
+		o := p.options[i]
 		if i == p.sc.cur {
 			lines = append(lines, sPlain.Background(cSel).Bold(true).Render(fit(" "+o.label, lw+1))+sPlain.Background(cSel).Foreground(cDim).Render(fit(o.help, w-lw-1)))
-		} else {
-			lines = append(lines, row)
+			continue
 		}
+		lines = append(lines, " "+fit(o.label, lw)+sDim.Render(o.help))
 	}
 	return lines
 }
