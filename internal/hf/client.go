@@ -61,22 +61,33 @@ func (g *gate) UnmarshalJSON(b []byte) error {
 }
 
 func (c *Client) get(ctx context.Context, u string, out any) error {
+	_, err := c.getPage(ctx, u, out)
+	return err
+}
+
+var nextLinkRe = regexp.MustCompile(`<([^>]+)>;\s*rel="next"`)
+
+func (c *Client) getPage(ctx context.Context, u string, out any) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer resp.Body.Close()
 	if err := statusError(resp); err != nil {
-		return err
+		return "", err
 	}
-	return json.NewDecoder(resp.Body).Decode(out)
+	next := ""
+	if m := nextLinkRe.FindStringSubmatch(resp.Header.Get("Link")); m != nil {
+		next = m[1]
+	}
+	return next, json.NewDecoder(resp.Body).Decode(out)
 }
 
 func statusError(resp *http.Response) error {
@@ -115,10 +126,45 @@ type Filters struct {
 	App       string // only models the Hub lists as usable with this app
 	MinParams string // like 500M or 6B
 	MaxParams string
+	Sort      string
+	Asc       bool
 	All       bool // include models that aren't GGUF
 }
 
-func DefaultFilters() Filters { return Filters{App: "llama.cpp"} }
+type SortKey struct {
+	ID, Label, Desc, Asc string
+	AscFirst             bool
+}
+
+var Sorts = []SortKey{
+	{"downloads", "Downloads", "most downloaded first", "", false},
+	{"likes", "Likes", "most liked first", "", false},
+	{"likes7d", "Likes this week", "most liked this week first", "", false},
+	{"likes30d", "Likes this month", "most liked this month first", "", false},
+	{"trendingScore", "Trending", "trending now", "", false},
+	{"lastModified", "Recently updated", "recently updated first", "", false},
+	{"createdAt", "Created", "newest first", "oldest first", false},
+	{"num_parameters", "Parameters", "largest first", "smallest first", false},
+	{"id", "Name", "Z to A", "A to Z", true},
+}
+
+func (k SortKey) Order(asc bool) string {
+	if asc && k.Asc != "" {
+		return k.Asc
+	}
+	return k.Desc
+}
+
+func SortByID(id string) SortKey {
+	for _, s := range Sorts {
+		if s.ID == id {
+			return s
+		}
+	}
+	return Sorts[0]
+}
+
+func DefaultFilters() Filters { return Filters{App: "llama.cpp", Sort: "downloads"} }
 
 var paramsRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s*([kmbtKMBT]?)$`)
 
@@ -140,7 +186,12 @@ func NormalizeParams(s string) (string, error) {
 	return m[1] + unit, nil
 }
 
-func (c *Client) Search(ctx context.Context, query string, f Filters) ([]Summary, error) {
+func (c *Client) Search(ctx context.Context, query string, f Filters, page string) ([]Summary, string, error) {
+	var out []Summary
+	if page != "" {
+		next, err := c.getPage(ctx, page, &out)
+		return out, next, err
+	}
 	q := url.Values{"limit": {"40"},
 		"expand[]": {"downloads", "likes", "lastModified", "tags", "pipeline_tag", "gated", "gguf"}}
 	if !f.All {
@@ -168,16 +219,17 @@ func (c *Client) Search(ctx context.Context, query string, f Filters) ([]Summary
 		}
 		q.Set("num_parameters", strings.Join(bounds, ","))
 	}
-	if strings.TrimSpace(query) == "" {
-		q.Set("sort", "trendingScore")
-	} else {
+	if strings.TrimSpace(query) != "" {
 		q.Set("search", query)
-		q.Set("sort", "downloads")
-		q.Set("direction", "-1")
 	}
-	var out []Summary
-	err := c.get(ctx, base+"/api/models?"+q.Encode(), &out)
-	return out, err
+	key := SortByID(f.Sort)
+	q.Set("sort", key.ID)
+	q.Set("direction", "-1")
+	if f.Asc && key.Asc != "" {
+		q.Set("direction", "1")
+	}
+	next, err := c.getPage(ctx, base+"/api/models?"+q.Encode(), &out)
+	return out, next, err
 }
 
 type File struct {

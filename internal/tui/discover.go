@@ -20,8 +20,6 @@ type discover struct {
 	typingQ bool
 	sc      scroller
 	results []hf.Summary
-	natural []hf.Summary
-	sort    sorter
 	shown   string
 	loading bool
 	err     error
@@ -29,6 +27,8 @@ type discover struct {
 
 	tasks []hf.Task
 	f     hf.Filters
+	urls  []string
+	page  int
 
 	sizes    map[string]sizeRange
 	fetching map[string]bool
@@ -59,6 +59,7 @@ type (
 		seq   int
 		query string
 		res   []hf.Summary
+		next  string
 		err   error
 	}
 	debounceMsg struct{ seq int }
@@ -85,37 +86,38 @@ func (d *discover) init(a *App) tea.Cmd {
 	})
 }
 
-func (d *discover) typing() bool { return d.typingQ || d.sort.picking }
+func (d *discover) typing() bool { return d.typingQ }
 
 func (d *discover) search(a *App) tea.Cmd {
+	d.urls, d.page = []string{""}, 0
+	return d.fetch(a)
+}
+
+func (d *discover) fetch(a *App) tea.Cmd {
 	d.loading = true
-	seq, q, f := d.seq, d.input.Value(), d.f
+	seq, q, f, url := d.seq, d.input.Value(), d.f, d.urls[d.page]
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		res, err := a.hub.Search(ctx, q, f)
-		return searchMsg{seq, q, res, err}
+		res, next, err := a.hub.Search(ctx, q, f, url)
+		return searchMsg{seq, q, res, next, err}
 	}
 }
 
-var discoverSort = []sortCol{{"name", false}, {"params", true}, {"downloads", true}, {"likes", true}, {"updated", true}}
-
-var discoverSortBy = map[string]func(x, y hf.Summary) int{
-	"name":      func(x, y hf.Summary) int { return cmpText(x.ID, y.ID) },
-	"params":    func(x, y hf.Summary) int { return cmpNum(x.GGUF.Params, y.GGUF.Params) },
-	"downloads": func(x, y hf.Summary) int { return cmpNum(x.Downloads, y.Downloads) },
-	"likes":     func(x, y hf.Summary) int { return cmpNum(x.Likes, y.Likes) },
-	"updated":   func(x, y hf.Summary) int { return x.Updated.Compare(y.Updated) },
+func (d *discover) turn(a *App, delta int) tea.Cmd {
+	if page := d.page + delta; page < 0 || page >= len(d.urls) {
+		return nil
+	}
+	d.page += delta
+	d.seq++
+	return d.fetch(a)
 }
 
 func (d *discover) hints(a *App) string {
 	if d.typingQ {
 		return a.hints("type", "search as you go", "confirm", "show results", "back", "stop typing")
 	}
-	if d.sort.picking {
-		return d.sort.hints(a)
-	}
-	return a.hints("confirm", "quants & download", "search", "search", "sort", "sort", "filter", "filters", "unsupported", "non-GGUF models", "help", "all keys")
+	return a.hints("confirm", "quants & download", "search", "search", "next-page", "next page", "prev-page", "previous", "sort", "sort by", "sort-flip", "flip order", "filter", "filters", "help", "all keys")
 }
 
 func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
@@ -173,8 +175,11 @@ func (d *discover) handle(a *App, msg tea.Msg) tea.Cmd {
 		}
 		d.loading, d.err, d.shown = false, msg.err, msg.query
 		if msg.err == nil {
-			d.natural = msg.res
-			d.results = sortedBy(d.natural, d.sort, discoverSort, discoverSortBy)
+			d.urls = d.urls[:d.page+1]
+			if msg.next != "" {
+				d.urls = append(d.urls, msg.next)
+			}
+			d.results = msg.res
 			d.sc = scroller{}
 			d.winFrom, d.winTo = 0, 25
 		}
@@ -222,11 +227,6 @@ func filterSummary(f hf.Filters) []string {
 
 func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 	n := len(d.results)
-	if d.sort.key(a, msg, discoverSort) {
-		d.results = sortedBy(d.natural, d.sort, discoverSort, discoverSortBy)
-		d.sc = scroller{}
-		return nil
-	}
 	if d.typingQ {
 		switch {
 		case a.is(msg, "confirm"):
@@ -272,10 +272,37 @@ func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 		d.sc.cur = 0
 	case a.is(msg, "bottom"):
 		d.sc.cur = max(0, n-1)
+	case a.is(msg, "next-page"):
+		return d.turn(a, 1)
+	case a.is(msg, "prev-page"):
+		return d.turn(a, -1)
 	case a.is(msg, "sort"):
-		d.sort.start(discoverSort)
-		d.results = sortedBy(d.natural, d.sort, discoverSort, discoverSortBy)
-		d.sc = scroller{}
+		cur := hf.SortByID(d.f.Sort)
+		var opts []option
+		for _, k := range hf.Sorts {
+			help := k.Order(k.AscFirst)
+			if k.ID == cur.ID {
+				help = k.Order(d.f.Asc)
+			}
+			opts = append(opts, option{k.ID, k.Label, help})
+		}
+		a.push(newPicker("Sort by", opts, cur.ID, func(a *App, id string) tea.Cmd {
+			if id == cur.ID {
+				return nil
+			}
+			d.f.Sort, d.f.Asc = id, hf.SortByID(id).AscFirst
+			d.seq++
+			return d.search(a)
+		}))
+	case a.is(msg, "sort-flip"):
+		cur := hf.SortByID(d.f.Sort)
+		if cur.Asc == "" {
+			a.say("The Hub only sorts %s from most to least", strings.ToLower(cur.Label))
+			return nil
+		}
+		d.f.Asc = !d.f.Asc
+		d.seq++
+		return d.search(a)
 	case a.is(msg, "search"):
 		d.typingQ = true
 		return d.input.Focus()
@@ -285,10 +312,6 @@ func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 			return nil
 		}
 		a.push(newFilterForm(d.f, d.tasks))
-	case a.is(msg, "unsupported"):
-		d.f.All = !d.f.All
-		d.seq++
-		return d.search(a)
 	case a.is(msg, "back"):
 		if d.input.Value() != "" || d.f != hf.DefaultFilters() {
 			d.input.SetValue("")
@@ -370,10 +393,11 @@ func (d *discover) view(a *App, w, h int) []string {
 	if d.f.Task.ID != "" {
 		what = d.f.Task.Label + " " + what
 	}
-	title := "Trending " + what
+	title := what
 	if d.shown != "" {
-		title = fmt.Sprintf("%d %s matching “%s”, most downloaded first", len(d.results), what, d.shown)
+		title += fmt.Sprintf(" matching “%s”", d.shown)
 	}
+	title += fmt.Sprintf(" · %s · page %d", hf.SortByID(d.f.Sort).Order(d.f.Asc), d.page+1)
 	if d.loading {
 		title += "  " + spin(a.tick)
 	}
@@ -389,7 +413,6 @@ func (d *discover) view(a *App, w, h int) []string {
 		{id: "downloaded", title: "DOWNLOADED", w: 16, min: 110},
 		{id: "features", title: "FEATURES", w: 18, min: 100},
 	}, func(id string) bool { return a.cfg.Hidden("discover", id) })...)
-	tb = tb.sorted(d.sort, discoverSort)
 	lines = append(lines, tb.header())
 	from, to := d.sc.window(len(d.results), max(1, h-len(lines)))
 	d.winFrom, d.winTo = from, to

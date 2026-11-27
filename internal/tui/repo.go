@@ -109,7 +109,7 @@ func (r *repoView) body(a *App, w, h int) []string {
 		for _, l := range wrap(why.Long, w-2) {
 			lines = append(lines, " "+l)
 		}
-		return append(lines, "", " "+sDim.Render("Nothing here can be downloaded. Close this and press "+a.keys.Label("unsupported")+" in Discover to hide models like it."))
+		return append(lines, "", " "+sDim.Render("Nothing here can be downloaded. Close this and turn on GGUF only in the Discover filters ("+a.keys.Label("filter")+") to hide models like it."))
 	}
 	facts := []string{}
 	if repo.Params > 0 {

@@ -9,38 +9,19 @@ import (
 	"loom/internal/store"
 )
 
-type profilesView struct {
-	sc   scroller
-	sort sorter
-}
+type profilesView struct{ sc scroller }
 
-var profilesSort = []sortCol{{"model", false}, {"profile", false}}
+func (v *profilesView) entries(a *App) []llama.Entry { return a.profiles.All() }
 
-var profilesSortBy = map[string]func(x, y llama.Entry) int{
-	"model":   func(x, y llama.Entry) int { return cmpText(x.Ref, y.Ref) },
-	"profile": func(x, y llama.Entry) int { return cmpText(x.Name, y.Name) },
-}
-
-func (v *profilesView) entries(a *App) []llama.Entry {
-	return sortedBy(a.profiles.All(), v.sort, profilesSort, profilesSortBy)
-}
-
-func (v *profilesView) typing() bool { return v.sort.picking }
+func (v *profilesView) typing() bool { return false }
 
 func (v *profilesView) hints(a *App) string {
-	if v.sort.picking {
-		return v.sort.hints(a)
-	}
-	return a.hints("run", "run", "confirm", "configure", "edit", "rename", "sort", "sort", "delete", "delete", "help", "all keys")
+	return a.hints("run", "run", "confirm", "configure", "edit", "rename", "delete", "delete", "help", "all keys")
 }
 
 func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 	key, ok := msg.(tea.KeyMsg)
 	if !ok {
-		return nil
-	}
-	if v.sort.key(a, key, profilesSort) {
-		v.sc = scroller{}
 		return nil
 	}
 	all := v.entries(a)
@@ -54,9 +35,6 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 		v.sc.move(-10, n)
 	case a.is(key, "page-down"):
 		v.sc.move(10, n)
-	case a.is(key, "sort"):
-		v.sort.start(profilesSort)
-		v.sc = scroller{}
 	case a.is(key, "top"):
 		v.sc.cur = 0
 	case a.is(key, "bottom"):
@@ -108,7 +86,7 @@ func (v *profilesView) view(a *App, w, h int) []string {
 			"  In the launch sheet from " + sBold.Render("Library") + ", press " + sBold.Render(a.keys.Label("save")) + " to save its settings as a profile."}
 	}
 	tb := newTable(w, column{id: "model", title: "MODEL", w: 40}, column{id: "profile", title: "PROFILE", w: 20}, column{title: "SETTINGS"}, column{title: "", w: 16, min: 110})
-	lines := []string{"", tb.sorted(v.sort, profilesSort).header()}
+	lines := []string{"", tb.header()}
 	from, to := v.sc.window(len(all), max(1, h-len(lines)))
 	for i := from; i < to; i++ {
 		e := all[i]
