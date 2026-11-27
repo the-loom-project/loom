@@ -282,7 +282,7 @@ func (l *library) view(a *App, w, h int) []string {
 	}
 
 	lines := []string{""}
-	if line, ok := searchLine(&l.query, l.searching, w); ok {
+	if line, ok := searchLine(l.query, l.searching); ok {
 		lines = append(lines, line)
 	}
 	for _, o := range libraryKinds {

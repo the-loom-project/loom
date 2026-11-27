@@ -67,7 +67,7 @@ func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
 			}
 		case a.is(msg, "log-up"):
 			if cur != nil {
-				v.back[cur] += 10
+				v.back[cur] = min(v.back[cur]+10, max(0, len(cur.Log())-1))
 			}
 		case a.is(msg, "log-down"):
 			if cur != nil {
@@ -90,7 +90,7 @@ func (v *activity) remove(a *App, s *llama.Instance) {
 	case s.Alive():
 		a.push(&confirm{heading: "Stop " + s.Model.Name() + "?", text: fmt.Sprintf("The server on port %d shuts down.", s.Port), yes: func(a *App) tea.Cmd { s.Stop(); return nil }})
 	default:
-		a.servers = without(a.servers, s)
+		a.dropServer(s)
 	}
 }
 
@@ -104,14 +104,18 @@ func without[T comparable](list []T, v T) []T {
 	return out
 }
 
+func (a *App) dropServer(s *llama.Instance) {
+	a.servers = without(a.servers, s)
+	delete(a.act.back, s)
+	delete(a.settled, s)
+}
+
 func (a *App) clearFinished() {
-	var srv []*llama.Instance
 	for _, s := range a.servers {
-		if s.Alive() {
-			srv = append(srv, s)
+		if !s.Alive() {
+			a.dropServer(s)
 		}
 	}
-	a.servers = srv
 }
 
 func (v *activity) view(a *App, w, h int) []string {
@@ -143,14 +147,14 @@ func (v *activity) panel(a *App, s *llama.Instance, w, h int) []string {
 	if s.Config.Mode == llama.Serve {
 		title += sDim.Render("  ·  ") + sFlag.Render(s.URL())
 	}
-	if n := v.back[s]; n > 0 {
-		title += sDim.Render(fmt.Sprintf("  ·  scrolled %d lines up", n))
+	log := s.Log()
+	room := max(1, h-2)
+	back := min(v.back[s], max(0, len(log)-room))
+	if back > 0 {
+		title += sDim.Render(fmt.Sprintf("  ·  scrolled %d lines up", back))
 	}
 	lines := []string{sEdge.Render(strings.Repeat("─", w)), " " + title}
-	log := s.Log()
-	room := max(1, h-len(lines))
-	v.back[s] = min(v.back[s], max(0, len(log)-room))
-	end := len(log) - v.back[s]
+	end := len(log) - back
 	for _, l := range log[max(0, end-room):end] {
 		text, st := parseLog(l)
 		lines = append(lines, " "+st.Render(clip(text, w-2)))

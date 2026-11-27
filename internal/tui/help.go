@@ -6,7 +6,7 @@ import (
 	"loom/internal/keys"
 )
 
-type helpView struct{ sc scroller }
+type helpView struct{ off int }
 
 func (v *helpView) title(a *App) string { return "Keys" }
 
@@ -22,16 +22,21 @@ func (v *helpView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		case a.is(key, "back", "quit", "help"):
 			return nil, nil
 		case a.is(key, "up"):
-			v.sc.cur = max(0, v.sc.cur-1)
+			v.off = max(0, v.off-1)
 		case a.is(key, "down"):
-			v.sc.cur++
+			w, h := a.popupBody(v)
+			v.off = min(v.off+1, max(0, len(v.lines(a, w))-h))
 		}
 	}
 	return v, nil
 }
 
 func (v *helpView) body(a *App, w, h int) []string {
+	lines := v.lines(a, w)
+	return lines[min(v.off, len(lines)-1):]
+}
 
+func (v *helpView) lines(a *App, w int) []string {
 	var blocks [][]string
 	var cur []string
 	group := ""
@@ -72,7 +77,5 @@ func (v *helpView) body(a *App, w, h int) []string {
 		}
 		lines = append(lines, " "+fit(l, w/2-1)+" "+r)
 	}
-	lines = append(lines, "", " "+sDim.Render("Change any of these in "+home(keys.Path())+", or run `loom keys` to see the format."))
-	v.sc.cur = min(v.sc.cur, max(0, len(lines)-h))
-	return lines[min(v.sc.cur, max(0, len(lines)-1)):]
+	return append(lines, "", " "+sDim.Render("Change any of these in "+home(keys.Path())+", or run `loom keys` to see the format."))
 }

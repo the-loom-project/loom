@@ -199,6 +199,7 @@ func (a *App) update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.w, a.h = msg.Width, msg.Height
+		a.lib.query.Width, a.disc.input.Width = searchWidth(a.w), searchWidth(a.w)
 		return nil
 	case hwMsg:
 		a.hw, a.hwKnown = hw.Hardware(msg), true
@@ -326,11 +327,20 @@ func (a *App) View() string {
 
 	if n := len(a.popups); n > 0 {
 		p := a.popups[n-1]
-		pw, ph := p.size(a)
-		pw, ph = min(pw, a.w-2), min(ph, a.h-4)
+		pw, ph := a.popupSize(p)
 		screen = composite(screen, box(p.title(a), p.hints(a), p.body(a, pw-4, ph-2), pw, ph), a.w)
 	}
 	return strings.Join(screen, "\n")
+}
+
+func (a *App) popupSize(p popup) (int, int) {
+	w, h := p.size(a)
+	return min(w, a.w-2), min(h, a.h-4)
+}
+
+func (a *App) popupBody(p popup) (int, int) {
+	w, h := a.popupSize(p)
+	return w - 4, h - 2
 }
 
 func (a *App) tooSmall() string {

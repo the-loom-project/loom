@@ -350,7 +350,7 @@ func (d *discover) open(a *App) tea.Cmd {
 
 func (d *discover) view(a *App, w, h int) []string {
 	lines := []string{""}
-	if line, ok := searchLine(&d.input, d.typingQ, w); ok {
+	if line, ok := searchLine(d.input, d.typingQ); ok {
 		lines = append(lines, line)
 	}
 	if parts := filterSummary(d.f); len(parts) > 0 {
