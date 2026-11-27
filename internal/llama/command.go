@@ -172,8 +172,8 @@ func Estimate(e Env, c Config) Mem {
 		}
 	}
 	if e.Model.Info != nil {
-		if per := e.Model.Info.KVBytesPerToken(kvBytes[c.KVCache]); per > 0 {
-			mem.KV, mem.Known = int64(per*float64(mem.Context)), true
+		if kv := e.Model.Info.KVBytes(uint64(mem.Context), kvBytes[c.KVCache]); kv > 0 {
+			mem.KV, mem.Known = kv, true
 		}
 	}
 	if c.Offload != "cpu" {

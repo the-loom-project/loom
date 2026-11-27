@@ -2,6 +2,7 @@ package gguf
 
 import (
 	"bufio"
+	"cmp"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -50,10 +51,17 @@ type Info struct {
 	HeadsKV   uint64
 	Experts   uint64
 	Params    uint64
+	KeyLen    uint64
+	ValueLen  uint64
+	Window    uint64
+	MLA       bool
 
 	HasChatTemplate bool
 	HasPooling      bool
 	HasTokenizer    bool
+
+	kvHeads []uint64
+	swa     []bool
 }
 
 var activeRe = regexp.MustCompile(`(?i)-A\d+(\.\d+)?[BM]$`)
@@ -98,17 +106,6 @@ func (i *Info) Kind() Kind {
 	return NoChat
 }
 
-func (i *Info) KVBytesPerToken(bytesPerElem float64) float64 {
-	if i.Blocks == 0 || i.Heads == 0 || i.EmbedDim == 0 {
-		return 0
-	}
-	kv := i.HeadsKV
-	if kv == 0 {
-		kv = i.Heads
-	}
-	return 2 * float64(i.Blocks) * float64(kv) * float64(i.EmbedDim/i.Heads) * bytesPerElem
-}
-
 const (
 	tU8, tI8, tU16, tI16, tU32, tI32, tF32, tBool, tString, tArray, tU64, tI64, tF64 = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
 )
@@ -133,9 +130,15 @@ func Read(path string) (*Info, error) {
 
 	info := &Info{}
 	nums := map[string]uint64{}
+	arrays := map[string][]uint64{}
 	for i := uint64(0); i < count && d.err == nil; i++ {
 		key := d.str()
-		num, str := d.value(d.u32())
+		t := d.u32()
+		if t == tArray && layerKeyRe.MatchString(key) {
+			arrays[key] = d.array()
+			continue
+		}
+		num, str := d.value(t)
 		switch key {
 		case "general.architecture":
 			info.Arch = str
@@ -172,11 +175,20 @@ func Read(path string) (*Info, error) {
 	info.Context = nums[a+"context_length"]
 	info.Blocks = nums[a+"block_count"]
 	info.EmbedDim = nums[a+"embedding_length"]
-	info.Heads = nums[a+"attention.head_count"]
-	info.HeadsKV = nums[a+"attention.head_count_kv"]
+	info.Heads = cmp.Or(nums[a+"attention.head_count"], slices.Max(append(arrays[a+"attention.head_count"], 0)))
+	info.HeadsKV = cmp.Or(nums[a+"attention.head_count_kv"], slices.Max(append(arrays[a+"attention.head_count_kv"], 0)), info.Heads)
 	info.Experts = nums[a+"expert_count"]
+	info.KeyLen = nums[a+"attention.key_length"]
+	info.ValueLen = nums[a+"attention.value_length"]
+	info.Window = nums[a+"attention.sliding_window"]
+	info.MLA = nums[a+"attention.key_length_mla"] > 0
+	info.kvHeads = perLayer(arrays[a+"attention.head_count_kv"], info.HeadsKV, info.Blocks)
+	pattern, hasPattern := nums[a+"attention.sliding_window_pattern"]
+	info.swa = swaLayers(info.Arch, info.Blocks, info.Window, arrays[a+"attention.sliding_window_pattern"], pattern, hasPattern)
 	return info, nil
 }
+
+var layerKeyRe = regexp.MustCompile(`\.attention\.(head_count|head_count_kv|sliding_window_pattern)$`)
 
 type decoder struct {
 	r   *bufio.Reader
@@ -213,6 +225,16 @@ func (d *decoder) str() string {
 		return ""
 	}
 	return string(d.bytes(int(n)))
+}
+
+func (d *decoder) array() []uint64 {
+	et, n := d.u32(), d.u64()
+	var out []uint64
+	for i := uint64(0); i < n && d.err == nil; i++ {
+		num, _ := d.value(et)
+		out = append(out, num)
+	}
+	return out
 }
 
 func (d *decoder) value(t uint32) (num uint64, str string) {
