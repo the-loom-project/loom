@@ -125,10 +125,8 @@ func Build(e Env, c Config) Command {
 	if c.Threads > 0 {
 		add("threads", "-t", itoa(c.Threads), "CPU threads used for the parts running on the CPU")
 	}
-	for _, w := range strings.Fields(c.Extra) {
-		if strings.HasPrefix(w, "-") {
-			add("extra", w, "", "your own flag")
-		} else if n := len(cmd.Args); n > 0 && cmd.Args[n-1].Setting == "extra" && cmd.Args[n-1].Value == "" {
+	for _, w := range c.Extra {
+		if n := len(cmd.Args); !isFlag(w) && n > 0 && cmd.Args[n-1].Setting == "extra" && cmd.Args[n-1].Value == "" {
 			cmd.Args[n-1].Value = w
 		} else {
 			add("extra", w, "", "your own flag")

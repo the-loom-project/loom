@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"strings"
-
 	tea "github.com/charmbracelet/bubbletea"
 
 	"loom/internal/llama"
@@ -93,8 +91,8 @@ func (v *profilesView) view(a *App, w, h int) []string {
 		cfg, _ := a.profiles.Profile(e.Ref, e.Name)
 		m, installed := a.model(e.Ref)
 		details := summary(a.env(m), cfg)
-		if extra := strings.TrimSpace(cfg.Extra); extra != "" {
-			details += " · " + extra
+		if len(cfg.Extra) > 0 {
+			details += " · " + cfg.Extra.String()
 		}
 		where := dim("")
 		if !installed && a.scanned {

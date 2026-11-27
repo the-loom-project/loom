@@ -272,8 +272,14 @@ var AllSettings = []Setting{
 	{
 		ID: "extra", Group: "Advanced", Label: "Extra flags", Text: true,
 		Help: "Anything else to pass to llama.cpp, e.g. --temp 0.6 --jinja. Appended last; run `llama-server --help` for the list.",
-		Get:  func(c Config) string { return c.Extra },
-		Set:  func(c *Config, v string) error { c.Extra = strings.TrimSpace(v); return nil },
+		Get:  func(c Config) string { return c.Extra.String() },
+		Set: func(c *Config, v string) error {
+			words, err := SplitArgs(v)
+			if err == nil {
+				c.Extra = words
+			}
+			return err
+		},
 	},
 }
 

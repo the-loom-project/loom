@@ -1,6 +1,7 @@
 package llama
 
 import (
+	"slices"
 	"strconv"
 
 	"loom/internal/gguf"
@@ -16,6 +17,11 @@ const (
 )
 
 type Config struct {
+	Options
+	Extra Args `json:"extra"`
+}
+
+type Options struct {
 	Mode     Mode   `json:"mode"`
 	Context  int    `json:"context"`
 	Offload  string `json:"offload"`
@@ -29,7 +35,6 @@ type Config struct {
 	Listen   string `json:"listen"`
 	Tools    bool   `json:"tools"`
 	Vision   bool   `json:"vision"`
-	Extra    string `json:"extra"`
 }
 
 type Env struct {
@@ -38,11 +43,13 @@ type Env struct {
 }
 
 func Defaults() Config {
-	return Config{
+	return Config{Options: Options{
 		Mode: Serve, Offload: "auto", Experts: "gpu", KVCache: "f16", Flash: "auto",
 		Port: 8080, Listen: "local", Vision: true,
-	}
+	}}
 }
+
+func (c Config) Equal(o Config) bool { return c.Options == o.Options && slices.Equal(c.Extra, o.Extra) }
 
 func (c Config) Fix(e Env) Config {
 	d := Defaults()

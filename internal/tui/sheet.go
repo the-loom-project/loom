@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -41,12 +42,11 @@ type editorDoneMsg struct {
 // lines that come from the settings, as opposed to the extra flags, are base.
 func (s *sheet) flagLines() (lines, base []string) {
 	for _, arg := range llama.Build(s.env, s.cfg).Args {
-		if arg.Setting == "extra" {
-			lines = append(lines, strings.Join(arg.Words(), " "))
-			continue
-		}
 		line := llama.Shell(arg.Words())
-		lines, base = append(lines, line), append(base, line)
+		lines = append(lines, line)
+		if arg.Setting != "extra" {
+			base = append(base, line)
+		}
 	}
 	return lines, base
 }
@@ -59,8 +59,10 @@ func (s *sheet) editFlags(a *App) tea.Cmd {
 		return nil
 	}
 	lines, base := s.flagLines()
-	f.WriteString(strings.Join(lines, "\n") + "\n")
-	f.Close()
+	_, err = f.WriteString(strings.Join(lines, "\n") + "\n")
+	if a.failed(errors.Join(err, f.Close()), "Couldn't write the flags file") {
+		return nil
+	}
 	argv := a.cfg.EditorCmd()
 	cmd := exec.Command(argv[0], append(argv[1:], f.Name())...)
 	return tea.ExecProcess(cmd, func(err error) tea.Msg { return editorDoneMsg{s, f.Name(), base, err} })
@@ -84,7 +86,7 @@ func (s *sheet) flagsEdited(a *App, m editorDoneMsg) {
 	for _, line := range m.base {
 		own[line]++
 	}
-	var extra []string
+	var extra llama.Args
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		switch {
@@ -92,10 +94,15 @@ func (s *sheet) flagsEdited(a *App, m editorDoneMsg) {
 		case own[line] > 0:
 			own[line]--
 		default:
-			extra = append(extra, line)
+			words, err := llama.SplitArgs(line)
+			if err != nil {
+				a.complain("The flags weren't changed: %s needs balanced quotes", line)
+				return
+			}
+			extra = append(extra, words...)
 		}
 	}
-	s.cfg.Extra = strings.Join(extra, " ")
+	s.cfg.Extra = extra
 }
 
 func newSheet(a *App, m store.Model) *sheet {
@@ -343,7 +350,7 @@ func (s *sheet) head(a *App, w int) []string {
 	prof := sDim.Render("no profile")
 	if s.profile != "" {
 		prof = sBold.Render("profile " + s.profile)
-		if saved, ok := a.profiles.Profile(m.Ref, s.profile); ok && saved.Fix(s.env) != s.cfg.Fix(s.env) {
+		if saved, ok := a.profiles.Profile(m.Ref, s.profile); ok && !saved.Fix(s.env).Equal(s.cfg.Fix(s.env)) {
 			prof += sWarn.Render(" (changed)")
 		}
 	}

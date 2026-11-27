@@ -10,6 +10,7 @@ import (
 	"os"
 	osexec "os/exec"
 	"os/signal"
+	"slices"
 	"strings"
 	"time"
 
@@ -315,7 +316,7 @@ func run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, args []strin
 		}
 	}
 	if extra := fs.Args(); len(extra) > 0 {
-		cfg.Extra = strings.TrimSpace(cfg.Extra + " " + strings.Join(extra, " "))
+		cfg.Extra = slices.Concat(cfg.Extra, extra)
 	}
 	cfg = cfg.Fix(env)
 	if cfg.Mode == llama.Serve {
