@@ -256,19 +256,8 @@ type Repo struct {
 
 func (c *Client) Repo(ctx context.Context, id string) (*Repo, error) {
 	var raw struct {
-		ID        string    `json:"id"`
-		SHA       string    `json:"sha"`
-		Updated   time.Time `json:"lastModified"`
-		Downloads int       `json:"downloads"`
-		Likes     int       `json:"likes"`
-		Gated     gate      `json:"gated"`
-		Tags      []string  `json:"tags"`
-		Pipeline  string    `json:"pipeline_tag"`
-		GGUF      struct {
-			Params  uint64 `json:"total"`
-			Arch    string `json:"architecture"`
-			Context uint64 `json:"context_length"`
-		} `json:"gguf"`
+		Summary
+		SHA      string `json:"sha"`
 		Siblings []struct {
 			Name   string `json:"rfilename"`
 			Size   int64  `json:"size"`
