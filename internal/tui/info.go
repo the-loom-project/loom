@@ -13,18 +13,18 @@ import (
 
 type infoView struct {
 	model store.Model
-	sc    scroller
+	off   int
 }
 
 func (v *infoView) title(a *App) string { return v.model.Name() }
 
 func (v *infoView) hints(a *App) string {
-	return a.hints("confirm", "configure & run", "copy", "copy command", "back", "close")
+	return a.hints("confirm", "configure & run", "up", "scroll", "copy", "copy command", "back", "close")
 }
 
 func (v *infoView) size(a *App) (int, int) {
 	w := min(a.w-8, 120)
-	return w, min(len(v.body(a, w-4, 100))+2, a.h-6)
+	return w, len(v.lines(a, w-4)) + 2
 }
 
 func (v *infoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
@@ -36,9 +36,10 @@ func (v *infoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	case a.is(key, "back", "quit", "info"):
 		return nil, nil
 	case a.is(key, "up"):
-		v.sc.move(-1, 100)
+		v.off = max(0, v.off-1)
 	case a.is(key, "down"):
-		v.sc.move(1, 100)
+		w, h := a.popupBody(v)
+		v.off = min(v.off+1, max(0, len(v.lines(a, w))-h))
 	case a.is(key, "copy"):
 		env := a.env(v.model)
 		a.copyCommand(llama.Build(env, a.profiles.Get(env)))
@@ -50,6 +51,11 @@ func (v *infoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 }
 
 func (v *infoView) body(a *App, w, h int) []string {
+	lines := v.lines(a, w)
+	return lines[min(v.off, len(lines)-1):]
+}
+
+func (v *infoView) lines(a *App, w int) []string {
 	m := v.model
 	env := a.env(m)
 	cfg := a.profiles.Get(env)
@@ -98,7 +104,7 @@ func (v *infoView) body(a *App, w, h int) []string {
 		}
 	}
 	if mem.GPU > 0 {
-		mm += fmt.Sprintf("  of %s GPU memory", units.GiB(mem.GPU))
+		mm += fmt.Sprintf(" · GPU has %s", units.GiB(mem.GPU))
 	}
 	lines = append(lines, row("Memory", mm))
 	lines = append(lines, row("Fit", strings.TrimSpace(plainText(fitSeg(gpuFit(a, m.Size))))))
