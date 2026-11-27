@@ -76,27 +76,24 @@ func list(st *store.Store) {
 		fmt.Println("No models yet. Run `loom` to browse and download one.")
 		return
 	}
-	w := 0
+	w, kw := 0, 0
 	for _, m := range models {
-		w = max(w, len(m.Ref))
+		w, kw = max(w, len(m.Ref)), max(kw, len(kindOf(m)))
+	}
+	for _, o := range others {
+		w = max(w, len(o.Repo))
 	}
 	for _, m := range models {
 		ctx := "?"
 		if m.Info != nil {
-			ctx = fmt.Sprintf("%dk", m.Info.Context/1024)
+			ctx = units.Tokens(m.Info.Context)
 		}
-		kind := m.Kind().String()
-		if m.MMProj != "" {
-			kind += "+vision"
-		}
-		fmt.Printf("%-*s  %8s  %-16s  %6s  %s\n", w, m.Ref, size(m.Size), kind, ctx, hw.Assess(m.Size, h.VRAM(""), h.RAM).Label())
+		fmt.Printf("%-*s  %8s  %-*s  %6s  %s\n", w, m.Ref, units.Bytes(m.Size), kw, kindOf(m), ctx, hw.Assess(m.Size, h.VRAM(""), h.RAM).Label())
 	}
 	for _, o := range others {
-		fmt.Printf("%-*s  %8s  not GGUF: llama.cpp can't run it\n", w, o.Repo, size(o.Size))
+		fmt.Printf("%-*s  %8s  not GGUF: llama.cpp can't run it\n", w, o.Repo, units.Bytes(o.Size))
 	}
 }
-
-func size(n int64) string { return units.Bytes(n) }
 
 func remove(st *store.Store, args []string) error {
 	yes := false
@@ -116,7 +113,7 @@ func remove(st *store.Store, args []string) error {
 	if err != nil {
 		return err
 	}
-	if !yes && !ask(fmt.Sprintf("Delete %s (%s)?", m.Ref, size(m.Size))) {
+	if !yes && !ask(fmt.Sprintf("Delete %s (%s)?", m.Ref, units.Bytes(m.Size))) {
 		return fmt.Errorf("aborted")
 	}
 	if err := st.Remove(m); err != nil {
@@ -209,7 +206,7 @@ func fetch(st *store.Store, hub *hf.Client, ref string) (store.Model, error) {
 		if p.Speed > 1 {
 			eta = "  ETA " + (time.Duration(float64(p.Total-p.Done)/p.Speed) * time.Second).Round(time.Second).String()
 		}
-		fmt.Fprintf(os.Stderr, "\r  %3d%%  %s / %s  %s/s%s   ", 100*p.Done/max(1, p.Total), size(p.Done), size(p.Total), size(int64(p.Speed)), eta)
+		fmt.Fprintf(os.Stderr, "\r  %3d%%  %s / %s  %s/s%s   ", 100*p.Done/max(1, p.Total), units.Bytes(p.Done), units.Bytes(p.Total), units.Bytes(int64(p.Speed)), eta)
 	})
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
@@ -236,7 +233,7 @@ func printQuants(id string, quants []hf.Quant, rec int, h hw.Hardware) {
 		if i == rec {
 			mark = "  ← recommended"
 		}
-		fmt.Printf("  %-14s %8s  %-14s %s%s\n", q.Name, size(q.Size), hw.Assess(q.Size, h.VRAM(""), h.RAM).Label(), gguf.QuantNote(q.Name), mark)
+		fmt.Printf("  %-14s %8s  %-14s %s%s\n", q.Name, units.Bytes(q.Size), hw.Assess(q.Size, h.VRAM(""), h.RAM).Label(), gguf.QuantNote(q.Name), mark)
 	}
 	fmt.Println()
 }
@@ -326,7 +323,7 @@ func run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, args []strin
 	}
 	cmd := llama.Build(env, cfg)
 
-	fmt.Printf("%s  %s\n\n%s\n\n", m.Ref, size(m.Size), tui.Explain(cmd, 100))
+	fmt.Printf("%s  %s\n\n%s\n\n", m.Ref, units.Bytes(m.Size), tui.Explain(cmd, 100))
 	for _, n := range llama.Notes(env, cfg) {
 		fmt.Println("! " + n.Text)
 	}
