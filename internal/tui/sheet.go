@@ -254,7 +254,11 @@ func (s *sheet) notes(a *App) []llama.Note {
 	if !a.cfg.Warnings {
 		return nil
 	}
-	return llama.Notes(s.env, s.cfg)
+	notes := llama.Notes(s.env, s.cfg)
+	if reason := a.profiles.Failure(s.env.Model.Ref, a.hw.Version); reason != "" {
+		notes = append([]llama.Note{{Danger: true, Text: fmt.Sprintf("llama.cpp %s couldn't load this model last time: %s", a.hw.Version, reason)}}, notes...)
+	}
+	return notes
 }
 
 func (s *sheet) pickProfile(a *App) tea.Cmd {

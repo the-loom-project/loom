@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -59,6 +60,15 @@ func (i *Instance) Log() []string {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return append([]string(nil), i.log...)
+}
+
+func (i *Instance) LoadError() string {
+	for _, l := range slices.Backward(i.Log()) {
+		if _, reason, ok := strings.Cut(l, "error loading model: "); ok {
+			return reason
+		}
+	}
+	return ""
 }
 
 func Start(id int, e Env, cfg Config, cmd Command, port int) (*Instance, error) {

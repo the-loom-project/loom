@@ -68,6 +68,7 @@ type App struct {
 	checked   map[string]bool
 	gate      chan struct{}
 	servers   []*llama.Instance
+	settled   map[*llama.Instance]bool
 	nextID    int
 
 	tick   int
@@ -81,7 +82,7 @@ type status struct {
 }
 
 func Run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, km *keys.Map, cfg *config.Config, warnings []string) error {
-	a := &App{st: st, hub: hub, profiles: profiles, keys: km, cfg: cfg, warnings: warnings, nextID: 1, latest: map[string]*hf.Repo{}, checked: map[string]bool{}, gate: make(chan struct{}, 4)}
+	a := &App{st: st, hub: hub, profiles: profiles, keys: km, cfg: cfg, warnings: warnings, nextID: 1, latest: map[string]*hf.Repo{}, checked: map[string]bool{}, settled: map[*llama.Instance]bool{}, gate: make(chan struct{}, 4)}
 	a.lib, a.disc, a.act, a.doc = newLibrary(), newDiscover(), newActivity(), &doctor{}
 	a.prof, a.conf = &profilesView{}, newConfigView()
 	if problems := slices.Concat(warnings, km.Problems); len(problems) > 0 {
@@ -201,6 +202,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case tickMsg:
 		a.tick++
+		a.noteLoads()
 		if !a.status.at.IsZero() && time.Since(a.status.at) > 6*time.Second {
 			a.status = status{}
 		}
@@ -396,6 +398,20 @@ func (a *App) footer() string {
 		st = sBad
 	}
 	return between(hints, st.Render(a.status.text)+" ", a.w)
+}
+
+func (a *App) noteLoads() {
+	for _, s := range a.servers {
+		st, _ := s.State()
+		if a.settled[s] || st == llama.Loading {
+			continue
+		}
+		a.settled[s] = true
+		reason := s.LoadError()
+		if st == llama.Ready || reason != "" {
+			a.failed(a.profiles.SetFailure(s.Model.Ref, a.hw.Version, reason), "Couldn't remember how "+s.Model.Name()+" loaded")
+		}
+	}
 }
 
 func (a *App) isRunning(ref string) bool {

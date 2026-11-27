@@ -369,10 +369,12 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 	}
 	label := kindLabel(m.Kind(), m.MMProj != "")
 	kind, gpu := dim(label), fitSeg(gpuFit(a, m.Size))
-	switch m.Kind() {
-	case gguf.Chat:
+	switch {
+	case a.profiles.Failure(m.Ref, a.hw.Version) != "":
+		kind = styled("can't load", sBad)
+	case m.Kind() == gguf.Chat:
 		kind = plain(label)
-	case gguf.NotLM, gguf.Unreadable:
+	case !m.Kind().Runnable():
 		kind, gpu = styled(label, sBad), nil
 	}
 	return tb.row(sel, dim(author), name, plain(params), dim(m.Quant), plain(units.Bytes(m.Size)), dim(ctx), kind, gpu, updated)

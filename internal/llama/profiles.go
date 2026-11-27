@@ -16,9 +16,15 @@ type Last struct {
 	Config  Config `json:"config"`
 }
 
+type Failure struct {
+	Build  string `json:"build"`
+	Reason string `json:"reason"`
+}
+
 type profileFile struct {
 	Last     map[string]Last              `json:"last"`
 	Profiles map[string]map[string]Config `json:"profiles"`
+	Failed   map[string]Failure           `json:"failed,omitempty"`
 }
 
 type Profiles struct {
@@ -65,6 +71,28 @@ func (p *Profiles) LastProfile(ref string) string {
 
 func (p *Profiles) Remember(ref, profile string, c Config) error {
 	p.f.Last[ref] = Last{Profile: profile, Config: c}
+	return p.save()
+}
+
+func (p *Profiles) Failure(ref, build string) string {
+	if f, ok := p.f.Failed[ref]; ok && f.Build == build {
+		return f.Reason
+	}
+	return ""
+}
+
+func (p *Profiles) SetFailure(ref, build, reason string) error {
+	switch _, known := p.f.Failed[ref]; {
+	case reason != "":
+		if p.f.Failed == nil {
+			p.f.Failed = map[string]Failure{}
+		}
+		p.f.Failed[ref] = Failure{build, reason}
+	case known:
+		delete(p.f.Failed, ref)
+	default:
+		return nil
+	}
 	return p.save()
 }
 
