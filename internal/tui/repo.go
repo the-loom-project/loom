@@ -9,7 +9,6 @@ import (
 
 	"loom/internal/gguf"
 	"loom/internal/hf"
-	"loom/internal/hw"
 	"loom/internal/store"
 	"loom/internal/units"
 )
@@ -63,7 +62,7 @@ func (r *repoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 			for i, q := range r.quants {
 				names[i], sizes[i] = q.Name, q.Size
 			}
-			r.rec = hw.Pick(names, sizes, a.hw.VRAM(""))
+			r.rec = a.cfg.Limits().Pick(names, sizes, a.hw.VRAM(""))
 			r.sc.cur = max(0, r.rec)
 		}
 	case tea.KeyMsg:
@@ -151,7 +150,7 @@ func (r *repoView) body(a *App, w, h int) []string {
 		case i == r.rec:
 			note = append([]seg{t("★ recommended  ", sAccent)}, note...)
 		}
-		lines = append(lines, tb.row(i == r.sc.cur, plain(q.Label()), plain(units.Bytes(q.Size)), fitSeg(hw.Assess(q.Size, vram, a.hw.RAM)), note))
+		lines = append(lines, tb.row(i == r.sc.cur, plain(q.Label()), plain(units.Bytes(q.Size)), fitSeg(a.cfg.Limits().Assess(q.Size, vram, a.hw.RAM)), note))
 	}
 
 	q := r.quants[r.sc.cur]

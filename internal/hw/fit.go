@@ -29,25 +29,27 @@ func (f Fit) Label() string {
 	return ""
 }
 
-func Assess(size, vram, ram int64) Fit {
+type Limits struct{ Green, RedRAM float64 }
+
+func (l Limits) Assess(size, vram, ram int64) Fit {
 	switch {
 	case vram == 0:
 		return Unknown
-	case float64(size) <= 0.7*float64(vram):
+	case float64(size) <= l.Green*float64(vram):
 		return Fits
 	case size <= vram:
 		return Tight
-	case ram > 0 && float64(size) > float64(vram)+0.9*float64(ram):
+	case ram > 0 && float64(size) > float64(vram)+l.RedRAM*float64(ram):
 		return TooBig
 	}
 	return Spills
 }
 
-func Pick(names []string, sizes []int64, vram int64) int {
+func (l Limits) Pick(names []string, sizes []int64, vram int64) int {
 	if len(names) == 0 {
 		return -1
 	}
-	fits := func(i int) bool { return vram > 0 && float64(sizes[i]) <= 0.7*float64(vram) }
+	fits := func(i int) bool { return vram > 0 && float64(sizes[i]) <= l.Green*float64(vram) }
 	k := slices.IndexFunc(names, func(n string) bool { return strings.TrimPrefix(n, "UD-") == "Q4_K_M" })
 	if k < 0 {
 		k = slices.IndexFunc(names, func(n string) bool { return strings.Contains(n, "Q4") })

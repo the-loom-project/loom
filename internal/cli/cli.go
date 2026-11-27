@@ -53,11 +53,11 @@ func Main(args []string) int {
 	case "":
 		err = tui.Run(st, hub, profiles, km, cfg, warnings)
 	case "run":
-		err = run(st, hub, profiles, args)
+		err = run(st, hub, profiles, args, cfg.Limits())
 	case "pull":
-		err = pull(st, hub, args)
+		err = pull(st, hub, args, cfg.Limits())
 	case "ls", "list":
-		list(st)
+		list(st, cfg.Limits())
 	case "rm":
 		err = remove(st, args)
 	case "keys":
@@ -83,7 +83,7 @@ func Main(args []string) int {
 	return 0
 }
 
-func list(st *store.Store) {
+func list(st *store.Store, lim hw.Limits) {
 	models, others := st.Scan()
 	h := hw.Detect()
 	if len(models)+len(others) == 0 {
@@ -102,7 +102,7 @@ func list(st *store.Store) {
 		if m.Info != nil {
 			ctx = units.Tokens(m.Info.Context)
 		}
-		fmt.Printf("%-*s  %8s  %-*s  %6s  %s\n", w, m.Ref, units.Bytes(m.Size), kw, kindOf(m), ctx, hw.Assess(m.Size, h.VRAM(""), h.RAM).Label())
+		fmt.Printf("%-*s  %8s  %-*s  %6s  %s\n", w, m.Ref, units.Bytes(m.Size), kw, kindOf(m), ctx, lim.Assess(m.Size, h.VRAM(""), h.RAM).Label())
 	}
 	for _, o := range others {
 		fmt.Printf("%-*s  %8s  %s\n", w, o.Repo, units.Bytes(o.Size), o.Status())
@@ -160,15 +160,15 @@ func resolve(models []store.Model, q string) (store.Model, error) {
 	return store.Model{}, fmt.Errorf("%q %w: %s", q, errAmbiguous, strings.Join(names, ", "))
 }
 
-func pull(st *store.Store, hub *hf.Client, args []string) error {
+func pull(st *store.Store, hub *hf.Client, args []string, lim hw.Limits) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: loom pull <owner/repo[:QUANT]>")
 	}
-	_, err := fetch(st, hub, args[0])
+	_, err := fetch(st, hub, args[0], lim)
 	return err
 }
 
-func fetch(st *store.Store, hub *hf.Client, ref string) (store.Model, error) {
+func fetch(st *store.Store, hub *hf.Client, ref string, lim hw.Limits) (store.Model, error) {
 	id, quant, ok := hf.ParseRef(ref)
 	if !ok {
 		return store.Model{}, fmt.Errorf("%q is not a model name or owner/repo", ref)
@@ -186,12 +186,12 @@ func fetch(st *store.Store, hub *hf.Client, ref string) (store.Model, error) {
 	for i, q := range quants {
 		names[i], sizes[i] = q.Name, q.Size
 	}
-	rec := hw.Pick(names, sizes, h.VRAM(""))
+	rec := lim.Pick(names, sizes, h.VRAM(""))
 	if quant == "" {
 		if len(quants) == 1 {
 			quant, rec = quants[0].Name, 0
 		} else {
-			printQuants(id, quants, rec, h)
+			printQuants(id, quants, rec, h, lim)
 			return store.Model{}, fmt.Errorf("pick a quant: loom pull %s:%s", id, quants[rec].Name)
 		}
 	}
@@ -202,7 +202,7 @@ func fetch(st *store.Store, hub *hf.Client, ref string) (store.Model, error) {
 		}
 	}
 	if q == nil {
-		printQuants(id, quants, rec, h)
+		printQuants(id, quants, rec, h, lim)
 		return store.Model{}, fmt.Errorf("%s has no %s", id, quant)
 	}
 
@@ -233,19 +233,19 @@ func fetch(st *store.Store, hub *hf.Client, ref string) (store.Model, error) {
 	return m, nil
 }
 
-func printQuants(id string, quants []hf.Quant, rec int, h hw.Hardware) {
+func printQuants(id string, quants []hf.Quant, rec int, h hw.Hardware, lim hw.Limits) {
 	fmt.Printf("%s: pick a quantization (bigger = closer to the original, slower, more memory):\n\n", id)
 	for i, q := range quants {
 		mark := ""
 		if i == rec {
 			mark = "  ← recommended"
 		}
-		fmt.Printf("  %-14s %8s  %-14s %s%s\n", q.Label(), units.Bytes(q.Size), hw.Assess(q.Size, h.VRAM(""), h.RAM).Label(), gguf.QuantNote(q.Name), mark)
+		fmt.Printf("  %-14s %8s  %-14s %s%s\n", q.Label(), units.Bytes(q.Size), lim.Assess(q.Size, h.VRAM(""), h.RAM).Label(), gguf.QuantNote(q.Name), mark)
 	}
 	fmt.Println()
 }
 
-func run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, args []string) error {
+func run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, args []string, lim hw.Limits) error {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	chat := fs.Bool("chat", false, "")
@@ -272,7 +272,7 @@ func run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, args []strin
 		if _, _, isRef := hf.ParseRef(name); !isRef || errors.Is(err, errAmbiguous) {
 			return err
 		}
-		if m, err = fetch(st, hub, name); err != nil {
+		if m, err = fetch(st, hub, name, lim); err != nil {
 			return err
 		}
 	}
@@ -280,7 +280,7 @@ func run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, args []strin
 	if !h.Installed {
 		return fmt.Errorf("llama.cpp isn't installed: sudo pacman -S llama-cpp ggml-vulkan")
 	}
-	env := llama.Env{Model: m, HW: h}
+	env := llama.Env{Model: m, HW: h, Limits: lim}
 	cfg := profiles.Get(env)
 	if *profile != "" {
 		saved, ok := profiles.Profile(m.Ref, *profile)

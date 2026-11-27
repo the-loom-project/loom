@@ -68,7 +68,7 @@ func serverFacts(a *App, i *llama.Instance, w int) []string {
 	if st == llama.Loading || st == llama.Ready {
 		up = sDim.Render("up " + units.Duration(time.Since(i.Started)))
 	}
-	env := llama.Env{Model: i.Model, HW: a.hw}
+	env := a.env(i.Model)
 	label := func(l string) string { return " " + sDim.Render(fit(l, 9)) }
 	lines := []string{between(" "+badge, up+" ", w), label("Runs as") + summary(env, i.Config)}
 	switch {

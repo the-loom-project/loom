@@ -466,7 +466,7 @@ func (s *sheet) memory(a *App, w int) []string {
 		return []string{label + sDim.Render(fmt.Sprintf(" = %s, all in RAM", units.GiB(need)))}
 	}
 	st := sGood
-	switch hw.Assess(need, m.GPU, a.hw.RAM) {
+	switch a.cfg.Limits().Assess(need, m.GPU, a.hw.RAM) {
 	case hw.Tight, hw.Spills:
 		st = sWarn
 	case hw.TooBig:

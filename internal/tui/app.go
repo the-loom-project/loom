@@ -138,7 +138,9 @@ func (a *App) rescan() tea.Cmd {
 	}
 }
 
-func (a *App) env(m store.Model) llama.Env { return llama.Env{Model: m, HW: a.hw} }
+func (a *App) env(m store.Model) llama.Env {
+	return llama.Env{Model: m, HW: a.hw, Limits: a.cfg.Limits()}
+}
 
 func (a *App) say(format string, args ...any) {
 	a.status = status{text: fmt.Sprintf(format, args...), at: time.Now()}

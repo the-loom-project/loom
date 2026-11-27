@@ -47,34 +47,26 @@ func summary(e llama.Env, c llama.Config) string {
 	return strings.Join(p, " · ")
 }
 
-func gpuFit(a *App, size int64) hw.Fit { return hw.Assess(size, a.hw.VRAM(""), a.hw.RAM) }
+func gpuFit(a *App, size int64) hw.Fit { return a.cfg.Limits().Assess(size, a.hw.VRAM(""), a.hw.RAM) }
 
-func (a *App) fitColor(size int64) lipgloss.Style {
-	vram, ram := float64(a.hw.VRAM("")), float64(a.hw.RAM)
-	if vram == 0 {
-		return sPlain
-	}
-	switch {
-	case float64(size) <= vram*float64(a.cfg.GreenPercent)/100:
+func fitStyle(f hw.Fit) lipgloss.Style {
+	switch f {
+	case hw.Fits:
 		return sGood
-	case ram > 0 && float64(size) > vram+ram*float64(a.cfg.RedRAMPercent)/100:
+	case hw.Tight, hw.Spills:
+		return sWarn
+	case hw.TooBig:
 		return sBad
 	}
-	return sWarn
+	return sPlain
 }
 
 func fitSeg(f hw.Fit) []seg {
-	switch f {
-	case hw.Fits:
-		return styled("● fits", sGood)
-	case hw.Tight:
-		return styled("● tight", sWarn)
-	case hw.Spills:
-		return styled("◐ partly CPU", sWarn)
-	case hw.TooBig:
-		return styled("○ too big", sBad)
+	label := map[hw.Fit]string{hw.Fits: "● fits", hw.Tight: "● tight", hw.Spills: "◐ partly CPU", hw.TooBig: "○ too big"}[f]
+	if label == "" {
+		return nil
 	}
-	return nil
+	return styled(label, fitStyle(f))
 }
 
 func home(path string) string {

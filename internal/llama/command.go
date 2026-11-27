@@ -201,7 +201,7 @@ func Notes(e Env, c Config) []Note {
 	}
 	if mem := Estimate(e, c); mem.GPU > 0 {
 		need := mem.Weights + mem.KV
-		switch hw.Assess(need, mem.GPU, e.HW.RAM) {
+		switch e.Limits.Assess(need, mem.GPU, e.HW.RAM) {
 		case hw.Spills:
 			if c.Offload == "all" {
 				add(true, "Needs about %s but the GPU has %s: with all layers on the GPU this will fail to load.", units.GiB(need), units.GiB(mem.GPU))

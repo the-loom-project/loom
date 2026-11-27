@@ -28,9 +28,9 @@ type discover struct {
 
 	tasks       []hf.Task
 	wantsFilter bool
-	f     hf.Filters
-	urls  []string
-	page  int
+	f           hf.Filters
+	urls        []string
+	page        int
 
 	sizes    map[string]sizeRange
 	fetching map[string]bool
@@ -458,7 +458,7 @@ func (d *discover) sizeCell(a *App, id string, dimmed bool) []seg {
 		return nil
 	}
 	paint := func(n int64) seg {
-		st := a.fitColor(n)
+		st := fitStyle(gpuFit(a, n))
 		if dimmed {
 			st = sDim
 		}

@@ -181,7 +181,7 @@ func serverRow(a *App, tb table, s *llama.Instance, sel bool) string {
 	if st == llama.Loading || st == llama.Ready {
 		where += "up " + units.Duration(time.Since(s.Started)) + "  "
 	}
-	return tb.row(sel, state, name, dim(where+summary(llama.Env{Model: s.Model, HW: a.hw}, s.Config)))
+	return tb.row(sel, state, name, dim(where+summary(a.env(s.Model), s.Config)))
 }
 
 func (a *App) openBrowser(url string) {

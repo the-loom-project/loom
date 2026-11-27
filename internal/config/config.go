@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"loom/internal/hw"
 	"loom/internal/jsonfile"
 )
 
@@ -81,6 +82,10 @@ func (c *Config) EditorCmd() []string {
 		}
 	}
 	return nil
+}
+
+func (c *Config) Limits() hw.Limits {
+	return hw.Limits{Green: float64(c.GreenPercent) / 100, RedRAM: float64(c.RedRAMPercent) / 100}
 }
 
 func (c *Config) NetTimeout() time.Duration { return time.Duration(c.Timeout) * time.Second }

@@ -38,8 +38,9 @@ type Options struct {
 }
 
 type Env struct {
-	Model store.Model
-	HW    hw.Hardware
+	Model  store.Model
+	HW     hw.Hardware
+	Limits hw.Limits
 }
 
 func Defaults() Config {

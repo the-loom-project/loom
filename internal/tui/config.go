@@ -73,8 +73,8 @@ func options() []opt {
 
 		number("Network", "Timeout", "How long loom waits for Hugging Face to answer, and how long a download may receive nothing before it fails. Raise it on a slow or flaky connection.", "s", 5, 600, func(c *config.Config) *int { return &c.Timeout }),
 
-		number("Colors", "Green up to", "Sizes in Discover are green while at most this share of your GPU memory. Lower it to leave more room for the context window.", "%", 1, 100, func(c *config.Config) *int { return &c.GreenPercent }),
-		number("Colors", "Red beyond", "Sizes in Discover are red when bigger than your GPU memory plus this share of your system RAM, so the model can't be spread across both. Yellow is everything in between.", "%", 0, 200, func(c *config.Config) *int { return &c.RedRAMPercent }),
+		number("Colors", "Green up to", "A model fits (green) while it takes at most this share of your GPU memory. Used for every fit mark and the recommended quant. Lower it to leave more room for the context window.", "%", 1, 100, func(c *config.Config) *int { return &c.GreenPercent }),
+		number("Colors", "Red beyond", "A model is too big (red) when larger than your GPU memory plus this share of your free RAM, so it can't be spread across both. Yellow is everything in between.", "%", 0, 200, func(c *config.Config) *int { return &c.RedRAMPercent }),
 
 		columnPref("Library columns", "library", "author", "Author", "The user or organization that published the model."),
 		columnPref("Library columns", "library", "updated", "Updated", "When the model last changed on Hugging Face, or ↑ update when a newer version is available. Hidden on narrow terminals anyway."),
