@@ -352,7 +352,7 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 		author, _, _ = strings.Cut(m.Repo, "/")
 	}
 	if m.Meta.Gated {
-		name = append(name, t(" "+lockGlyph, sWarn))
+		name = append(name, t("  GATED", sWarn))
 	}
 	if a.isRunning(m.Ref) {
 		name = append(name, t("  ● running", sGood))

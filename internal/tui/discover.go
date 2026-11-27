@@ -418,7 +418,7 @@ func (d *discover) view(a *App, w, h int) []string {
 		size := d.sizeCell(a, r.ID, r.Runnable() != nil)
 		label := []seg{t(name, nameStyle)}
 		if r.Gated {
-			label = append(label, t(" "+lockGlyph, sWarn))
+			label = append(label, t("  GATED", sWarn))
 		}
 		lines = append(lines, tb.row(i == d.sc.cur,
 			[]seg{mark, t(owner, sDim)},
@@ -485,8 +485,6 @@ func downloaded(models []store.Model, repo string) bool {
 	}
 	return false
 }
-
-const lockGlyph = ""
 
 func groupLabel(id string) string {
 	for _, g := range hf.Groups {
