@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"os/signal"
@@ -318,7 +319,8 @@ func (a *App) View() string {
 	for len(lines) < bodyH {
 		lines = append(lines, "")
 	}
-	screen := append([]string{a.header(), a.tabRule()}, lines[:bodyH]...)
+	header, rule := a.tabBar()
+	screen := append([]string{header, rule}, lines[:bodyH]...)
 	screen = append(screen, a.footer())
 
 	if n := len(a.popups); n > 0 {
@@ -338,52 +340,68 @@ func (a *App) tooSmall() string {
 	return lipgloss.Place(a.w, a.h, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Center, msg...))
 }
 
-func (a *App) header() string {
-	var tabs []string
-	for i, name := range tabNames {
-		label := name
-		switch tabID(i) {
-		case tabLibrary:
-			if a.scanned {
-				label += sDim.Render(fmt.Sprintf(" %d", len(a.models)))
-			}
-		case tabActivity:
-			if n := a.liveCount(); n > 0 {
-				label += sGood.Render(fmt.Sprintf(" %d", n))
-			}
-		}
-		if tabID(i) == a.tab {
-			tabs = append(tabs, sBold.Render(name)+strings.TrimPrefix(label, name))
-		} else {
-			tabs = append(tabs, sDim.Render(name)+strings.TrimPrefix(label, name))
-		}
-	}
-	left := " " + sAccent.Bold(true).Render("loom") + "   " + strings.Join(tabs, "   ")
-	return left
+type tabLabel struct {
+	name, key, count string
+	countStyle       lipgloss.Style
 }
 
-func (a *App) tabRule() string {
-	x := 1 + 4 + 3
-	start, end := x, x
+func (a *App) tabLabels() []tabLabel {
+	keys := [...]string{"view-library", "view-discover", "view-activity", "view-doctor", "view-profiles", "view-config"}
+	out := make([]tabLabel, len(tabNames))
 	for i, name := range tabNames {
-		label := name
-		switch tabID(i) {
-		case tabLibrary:
-			if a.scanned {
-				label += fmt.Sprintf(" %d", len(a.models))
-			}
-		case tabActivity:
-			if n := a.liveCount(); n > 0 {
-				label += fmt.Sprintf(" %d", n)
-			}
-		}
-		if tabID(i) == a.tab {
-			start, end = x, x+width(label)
-		}
-		x += width(label) + 3
+		out[i] = tabLabel{name: name, key: cmp.Or(a.keys.Label(keys[i]), name[:1])}
 	}
-	end = min(end, a.w)
-	return sEdge.Render(strings.Repeat("─", start)) + sAccent.Render(strings.Repeat("━", end-start)) + sEdge.Render(strings.Repeat("─", max(0, a.w-end)))
+	if a.scanned {
+		out[tabLibrary].count, out[tabLibrary].countStyle = fmt.Sprint(len(a.models)), sDim
+	}
+	if n := a.liveCount(); n > 0 {
+		out[tabActivity].count, out[tabActivity].countStyle = fmt.Sprint(n), sGood
+	}
+	return out
+}
+
+func (a *App) tabBar() (header, rule string) {
+	labels := a.tabLabels()
+	text := func(i int, short bool) (string, string) {
+		switch {
+		case short && tabID(i) != a.tab:
+			return labels[i].key, ""
+		case labels[i].count == "":
+			return labels[i].name, ""
+		}
+		return labels[i].name, " " + labels[i].count
+	}
+	layouts := []struct {
+		brand, short bool
+		gap          int
+	}{{true, false, 3}, {false, false, 2}, {false, true, 2}}
+	for n, l := range layouts {
+		x, start, end := 1, 0, 0
+		head := " "
+		if l.brand {
+			head += sAccent.Bold(true).Render("loom") + "   "
+			x += 7
+		}
+		for i := range labels {
+			if i > 0 {
+				head += strings.Repeat(" ", l.gap)
+				x += l.gap
+			}
+			name, count := text(i, l.short)
+			st := sDim
+			if tabID(i) == a.tab {
+				st, start, end = sBold, x, x+width(name+count)
+			}
+			head += st.Render(name) + labels[i].countStyle.Render(count)
+			x += width(name + count)
+		}
+		if x <= a.w || n == len(layouts)-1 {
+			end = min(end, a.w)
+			rule = sEdge.Render(strings.Repeat("─", start)) + sAccent.Render(strings.Repeat("━", max(0, end-start))) + sEdge.Render(strings.Repeat("─", max(0, a.w-end)))
+			return clip(head, a.w), rule
+		}
+	}
+	return "", ""
 }
 
 func (a *App) liveCount() int {
