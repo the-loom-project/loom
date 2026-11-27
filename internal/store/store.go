@@ -237,13 +237,18 @@ func linked(dir, blob string) bool {
 
 func (s *Store) RemoveOther(o Other) error { return os.RemoveAll(o.dir) }
 
-func Has(models []Model, repo, quant string) bool {
+func Lookup(models []Model, repo, quant string) (Model, bool) {
 	for _, m := range models {
 		if m.Repo == repo && m.Quant == quant {
-			return true
+			return m, true
 		}
 	}
-	return false
+	return Model{}, false
+}
+
+func Has(models []Model, repo, quant string) bool {
+	_, ok := Lookup(models, repo, quant)
+	return ok
 }
 
 func fileSize(p string) int64 {

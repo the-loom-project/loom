@@ -192,9 +192,10 @@ func fetch(st *store.Store, hub *hf.Client, ref string) (store.Model, error) {
 		return store.Model{}, fmt.Errorf("%s has no %s", id, quant)
 	}
 
-	if models, _ := st.Scan(); store.Has(models, id, quant) {
+	models, _ := st.Scan()
+	if m, ok := store.Lookup(models, id, quant); ok {
 		fmt.Printf("✓ %s:%s is already downloaded\n", id, quant)
-		return findRef(models, id, quant), nil
+		return m, nil
 	}
 	files := append([]hf.File{}, q.Files...)
 	if mm := repo.MMProj(); mm != nil {
@@ -212,18 +213,10 @@ func fetch(st *store.Store, hub *hf.Client, ref string) (store.Model, error) {
 	if err != nil {
 		return store.Model{}, err
 	}
-	models, _ := st.Scan()
+	models, _ = st.Scan()
 	fmt.Printf("✓ downloaded %s:%s\n", id, quant)
-	return findRef(models, id, quant), nil
-}
-
-func findRef(models []store.Model, id, quant string) store.Model {
-	for _, m := range models {
-		if m.Repo == id && m.Quant == quant {
-			return m
-		}
-	}
-	return store.Model{}
+	m, _ := store.Lookup(models, id, quant)
+	return m, nil
 }
 
 func printQuants(id string, quants []hf.Quant, rec int, h hw.Hardware) {
