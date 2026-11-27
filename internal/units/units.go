@@ -7,16 +7,16 @@ import (
 
 func Bytes(n int64) string {
 	switch {
-	case n >= 1e11:
+	case n >= 99.95e9:
 		return fmt.Sprintf("%.0f GB", float64(n)/1e9)
-	case n >= 1e9:
+	case n >= 999.5e6:
 		return fmt.Sprintf("%.1f GB", float64(n)/1e9)
-	case n >= 1e6:
+	case n >= 999.5e3:
 		return fmt.Sprintf("%.0f MB", float64(n)/1e6)
-	case n > 0:
+	case n >= 1000:
 		return fmt.Sprintf("%.0f kB", float64(n)/1e3)
 	}
-	return "0 B"
+	return fmt.Sprintf("%d B", n)
 }
 
 func GiB(n int64) string {
@@ -29,9 +29,9 @@ func GiB(n int64) string {
 
 func Count(n int) string {
 	switch {
-	case n >= 1_000_000:
+	case n >= 999_500:
 		return fmt.Sprintf("%.1fM", float64(n)/1e6)
-	case n >= 10_000:
+	case n >= 9_950:
 		return fmt.Sprintf("%.0fk", float64(n)/1e3)
 	case n >= 1000:
 		return fmt.Sprintf("%.1fk", float64(n)/1e3)
@@ -56,6 +56,10 @@ func Ago(t time.Time) string {
 	switch {
 	case t.IsZero():
 		return ""
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
 	case d < 48*time.Hour:
 		return fmt.Sprintf("%dh ago", int(d.Hours()))
 	case d < 60*24*time.Hour:

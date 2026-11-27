@@ -69,9 +69,9 @@ func Params(n uint64) string {
 	switch {
 	case n == 0:
 		return "?"
-	case n >= 10e9:
+	case n >= 9.95e9:
 		return fmt.Sprintf("%.0fB", float64(n)/1e9)
-	case n >= 1e9:
+	case n >= 999.5e6:
 		return fmt.Sprintf("%.1fB", float64(n)/1e9)
 	case n >= 1e6:
 		return fmt.Sprintf("%.0fM", float64(n)/1e6)
