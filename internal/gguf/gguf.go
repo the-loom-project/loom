@@ -200,12 +200,6 @@ func (d *decoder) u64() uint64 {
 	return 0
 }
 
-func (d *decoder) skip(n uint64) {
-	if d.err == nil {
-		_, d.err = d.r.Discard(int(n))
-	}
-}
-
 func (d *decoder) str() string {
 	n := d.u64()
 	if n > 1<<28 {
