@@ -66,7 +66,7 @@ func (l *library) entries(a *App) []entry {
 	}
 	if l.kind == "" || l.kind == "other" {
 		for i := range a.others {
-			if strings.Contains(strings.ToLower(a.others[i].Repo), q) {
+			if strings.Contains(strings.ToLower(a.others[i].Repo), q) && !a.downloading(a.others[i].Repo) {
 				out = append(out, entry{other: &a.others[i]})
 			}
 		}
@@ -188,9 +188,15 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 		}
 	case a.is(key, "delete"):
 		return l.askDelete(a, e)
+	case e.other != nil && a.is(key, "discover"):
+		return a.disc.find(a, e.other.Repo)
+	case e.other != nil && e.other.Partial:
+		if a.is(key, "confirm", "run", "info") {
+			a.complain("%s isn't fully downloaded: %s finds it to download again, %s deletes it", e.other.Repo, a.keys.Label("discover"), a.keys.Label("delete"))
+		}
 	case e.other != nil:
 		if a.is(key, "confirm", "run", "info") {
-			a.complain("%s is not a GGUF model, so llama.cpp can't run it (x deletes it)", e.other.Repo)
+			a.complain("%s is not a GGUF model, so llama.cpp can't run it (%s deletes it)", e.other.Repo, a.keys.Label("delete"))
 		}
 	case a.is(key, "update"):
 		m := *e.model
@@ -232,7 +238,7 @@ func (l *library) askDelete(a *App, e entry) tea.Cmd {
 		o := *e.other
 		a.push(&confirm{
 			heading: "Delete " + o.Repo + "?",
-			text:    fmt.Sprintf("Frees %s. llama.cpp can't run it, so loom can't use it.", units.Bytes(o.Size)),
+			text:    fmt.Sprintf("Frees %s (%s).", units.Bytes(o.Size), o.Status()),
 			yes: func(a *App) tea.Cmd {
 				if err := a.st.RemoveOther(o); err != nil {
 					a.complain("%v", err)
@@ -333,6 +339,9 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 	}
 	if e.other != nil {
 		owner, repo, _ := strings.Cut(e.other.Repo, "/")
+		if e.other.Partial {
+			return tb.row(sel, dim(owner), styled(repo, sDim), nil, nil, styled(units.Bytes(e.other.Size), sDim), nil, styled("incomplete", sWarn), dim("download again"))
+		}
 		return tb.row(sel, dim(owner), styled(repo, sDim), nil, nil, styled(units.Bytes(e.other.Size), sDim), nil, styled("not GGUF", sDim), styled("can't run", sDim))
 	}
 	m := e.model

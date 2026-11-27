@@ -52,9 +52,10 @@ func (m Model) Name() string {
 }
 
 type Other struct {
-	Repo string
-	Size int64
-	dir  string
+	Repo    string
+	Size    int64
+	Partial bool
+	dir     string
 }
 
 type Store struct {
@@ -92,8 +93,8 @@ func (s *Store) Scan() ([]Model, []Other) {
 		found := scanRepo(repo, dir)
 		if len(found) > 0 {
 			models = append(models, found...)
-		} else if size := dirSize(filepath.Join(dir, "snapshots")); size > 0 {
-			others = append(others, Other{Repo: repo, Size: size, dir: dir})
+		} else if size := dirSize(dir); size > 0 {
+			others = append(others, Other{Repo: repo, Size: size, Partial: partial(dir), dir: dir})
 		}
 	}
 
@@ -243,6 +244,13 @@ func linked(dir, blob string) bool {
 	return found
 }
 
+func (o Other) Status() string {
+	if o.Partial {
+		return "incomplete download"
+	}
+	return "not GGUF: llama.cpp can't run it"
+}
+
 func (s *Store) RemoveOther(o Other) error { return os.RemoveAll(o.dir) }
 
 func Lookup(models []Model, repo, quant string) (Model, bool) {
@@ -270,12 +278,26 @@ func fileSize(p string) int64 {
 func dirSize(dir string) int64 {
 	var n int64
 	filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
-			n += fileSize(p)
+		if err == nil && d.Type().IsRegular() {
+			if info, err := d.Info(); err == nil {
+				n += info.Size()
+			}
 		}
 		return nil
 	})
 	return n
+}
+
+func partial(dir string) bool {
+	found := false
+	filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err == nil && (strings.HasSuffix(p, ".incomplete") || gguf.IsWeights(p)) {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return found
 }
 
 func prune(dir string) {

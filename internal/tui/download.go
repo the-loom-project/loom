@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -59,6 +60,10 @@ func pct(p hf.Progress) int {
 		return 0
 	}
 	return int(100 * p.Done / p.Total)
+}
+
+func (a *App) downloading(repo string) bool {
+	return slices.ContainsFunc(a.downloads, func(d *download) bool { return d.repo == repo })
 }
 
 func (a *App) download(repo, quant string) *download {

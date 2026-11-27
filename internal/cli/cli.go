@@ -91,7 +91,7 @@ func list(st *store.Store) {
 		fmt.Printf("%-*s  %8s  %-*s  %6s  %s\n", w, m.Ref, units.Bytes(m.Size), kw, kindOf(m), ctx, hw.Assess(m.Size, h.VRAM(""), h.RAM).Label())
 	}
 	for _, o := range others {
-		fmt.Printf("%-*s  %8s  not GGUF: llama.cpp can't run it\n", w, o.Repo, units.Bytes(o.Size))
+		fmt.Printf("%-*s  %8s  %s\n", w, o.Repo, units.Bytes(o.Size), o.Status())
 	}
 }
 
