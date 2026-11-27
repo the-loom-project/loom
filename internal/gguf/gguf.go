@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -246,7 +247,21 @@ func QuantOf(path string) string {
 	return strings.ToUpper(m[len(m)-1][2])
 }
 
-func IsMMProj(path string) bool { return strings.Contains(strings.ToLower(path), "mmproj") }
+func IsMMProj(path string) bool {
+	return strings.HasSuffix(path, ".gguf") && strings.Contains(strings.ToLower(path), "mmproj")
+}
+
+func BestMMProj(paths []string) string {
+	best := ""
+	for _, p := range paths {
+		if best == "" || mmprojRank(p) > mmprojRank(best) {
+			best = p
+		}
+	}
+	return best
+}
+
+func mmprojRank(path string) int { return slices.Index([]string{"F32", "BF16", "F16"}, QuantOf(path)) }
 
 var auxRe = regexp.MustCompile(`(?i)(^|/)(mtp[-_/]|[^/]*imatrix)`)
 

@@ -315,16 +315,19 @@ func (r *Repo) Quants() []Quant {
 }
 
 func (r *Repo) MMProj() *File {
-	var pick *File
-	for i, f := range r.Files {
-		if !gguf.IsMMProj(f.Path) || !strings.HasSuffix(f.Path, ".gguf") {
-			continue
-		}
-		if pick == nil || (strings.Contains(strings.ToUpper(f.Path), "F16") && !strings.Contains(strings.ToUpper(pick.Path), "F16")) {
-			pick = &r.Files[i]
+	var paths []string
+	for _, f := range r.Files {
+		if gguf.IsMMProj(f.Path) {
+			paths = append(paths, f.Path)
 		}
 	}
-	return pick
+	best := gguf.BestMMProj(paths)
+	for i, f := range r.Files {
+		if best != "" && f.Path == best {
+			return &r.Files[i]
+		}
+	}
+	return nil
 }
 
 func ParseRef(ref string) (repo, quant string, ok bool) {

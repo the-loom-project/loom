@@ -130,16 +130,17 @@ func scanRepo(repo, dir string) []Model {
 	revision := strings.TrimSpace(string(rev))
 	snap := filepath.Join(dir, "snapshots", revision)
 	byQuant := map[string][]string{}
-	var mmproj string
+	var mmprojs []string
 	filepath.WalkDir(snap, func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".gguf") {
 			return nil
 		}
+		if _, err := os.Stat(p); err != nil {
+			return nil
+		}
 		rel, _ := filepath.Rel(snap, p)
 		if gguf.IsMMProj(rel) {
-			if mmproj == "" || strings.Contains(strings.ToUpper(rel), "F16") {
-				mmproj = p
-			}
+			mmprojs = append(mmprojs, p)
 			return nil
 		}
 		if !gguf.IsWeights(rel) {
@@ -149,6 +150,7 @@ func scanRepo(repo, dir string) []Model {
 		byQuant[q] = append(byQuant[q], p)
 		return nil
 	})
+	mmproj := gguf.BestMMProj(mmprojs)
 
 	var out []Model
 	for q, files := range byQuant {
