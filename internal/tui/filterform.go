@@ -160,7 +160,7 @@ func (v *filterForm) body(a *App, w, h int) []string {
 		case i == v.sc.cur && v.editing:
 			lines = append(lines, " "+sBold.Render(fit(row.label, labelW))+" "+v.input.View())
 		case i == v.sc.cur:
-			plainVal := sPlain.Background(cSel).Bold(true).Render(fit(stripStyle(val), w-labelW-3))
+			plainVal := sPlain.Background(cSel).Bold(true).Render(fit(ansi.Strip(val), w-labelW-3))
 			lines = append(lines, sPlain.Background(cSel).Bold(true).Render(" "+fit(row.label, labelW)+" ")+plainVal)
 		default:
 			lines = append(lines, " "+sDim.Render(fit(row.label, labelW))+" "+val)
@@ -175,5 +175,3 @@ func (v *filterForm) body(a *App, w, h int) []string {
 	}
 	return lines
 }
-
-func stripStyle(s string) string { return ansi.Strip(s) }
