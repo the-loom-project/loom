@@ -37,6 +37,7 @@ var Actions = []Action{
 	{"quit", "Everywhere", "Quit loom", []string{"q"}},
 	{"search", "Lists", "Search or filter by text", []string{"/"}},
 	{"filter", "Lists", "Filter by category", []string{"f"}},
+	{"discover", "Lists", "Find the selected model on Hugging Face (opens its Discover page)", []string{"D"}},
 	{"unsupported", "Lists", "Show or hide models llama.cpp can't run", []string{"u"}},
 	{"info", "Lists", "Show everything about the selected model", []string{"i"}},
 	{"run", "Items", "Run the selected item (Library: with its last settings; Doctor: check again)", []string{"r"}},

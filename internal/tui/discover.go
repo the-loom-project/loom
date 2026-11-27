@@ -30,6 +30,29 @@ type discover struct {
 	tasks []hf.Task
 	task  hf.Task
 	all   bool
+
+	sizes    map[string]sizeRange
+	fetching map[string]bool
+	gate     chan struct{}
+	winFrom  int
+	winTo    int
+}
+
+// sizeRange is the smallest and largest quantization of a repo.
+type sizeRange struct{ min, max int64 }
+
+func (s sizeRange) String() string {
+	lo, hi := units.Bytes(s.min), units.Bytes(s.max)
+	switch {
+	case s.max == 0:
+		return ""
+	case lo == hi:
+		return lo
+	}
+	if unit := hi[strings.LastIndex(hi, " "):]; strings.HasSuffix(lo, unit) {
+		lo = strings.TrimSuffix(lo, unit)
+	}
+	return lo + "–" + hi
 }
 
 type (
@@ -41,13 +64,17 @@ type (
 	}
 	debounceMsg struct{ seq int }
 	tasksMsg    struct{ tasks []hf.Task }
+	sizeMsg     struct {
+		id string
+		sizeRange
+	}
 )
 
 func newDiscover() *discover {
 	ti := textinput.New()
 	ti.Prompt = ""
 	ti.Placeholder = "model name, owner/repo or a huggingface.co link"
-	return &discover{input: ti, loading: true}
+	return &discover{input: ti, loading: true, sizes: map[string]sizeRange{}, fetching: map[string]bool{}, gate: make(chan struct{}, 4)}
 }
 
 func (d *discover) init(a *App) tea.Cmd {
@@ -93,7 +120,52 @@ func (d *discover) hints(a *App) string {
 }
 
 func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
+	cmd := d.handle(a, msg)
+	switch msg.(type) {
+	case searchMsg, tea.KeyMsg:
+		return tea.Batch(cmd, d.fetchSizes(a))
+	}
+	return cmd
+}
+
+// fetchSizes looks up the quantization sizes of the rows on screen, a few at a time.
+func (d *discover) fetchSizes(a *App) tea.Cmd {
+	if a.tab != tabDiscover {
+		return nil
+	}
+	var cmds []tea.Cmd
+	for i := d.winFrom; i < min(d.winTo, len(d.results)); i++ {
+		id := d.results[i].ID
+		if _, known := d.sizes[id]; known || d.fetching[id] || !d.results[i].IsGGUF() {
+			continue
+		}
+		d.fetching[id] = true
+		cmds = append(cmds, func() tea.Msg {
+			d.gate <- struct{}{}
+			defer func() { <-d.gate }()
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			repo, err := a.hub.Repo(ctx, id)
+			var r sizeRange
+			if err == nil {
+				for _, q := range repo.Quants() {
+					if r.min == 0 || q.Size < r.min {
+						r.min = q.Size
+					}
+					r.max = max(r.max, q.Size)
+				}
+			}
+			return sizeMsg{id, r}
+		})
+	}
+	return tea.Batch(cmds...)
+}
+
+func (d *discover) handle(a *App, msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
+	case sizeMsg:
+		delete(d.fetching, msg.id)
+		d.sizes[msg.id] = msg.sizeRange
 	case tasksMsg:
 		d.tasks = msg.tasks
 	case searchMsg:
@@ -105,6 +177,7 @@ func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
 			d.natural = msg.res
 			d.results = sortedBy(d.natural, d.sort, discoverSort, discoverSortBy)
 			d.sc = scroller{}
+			d.winFrom, d.winTo = 0, 25
 		}
 	case debounceMsg:
 		if msg.seq == d.seq {
@@ -200,6 +273,18 @@ func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
+// find searches for a repo and opens its page, e.g. from a model in the Library.
+func (d *discover) find(a *App, repo string) tea.Cmd {
+	_, name, _ := strings.Cut(repo, "/")
+	d.input.SetValue(name)
+	d.all, d.task = false, hf.Task{}
+	d.seq++
+	a.tab = tabDiscover
+	rv := newRepoView(repo)
+	a.push(rv)
+	return tea.Batch(d.search(a), rv.load(a))
+}
+
 func (d *discover) open(a *App) tea.Cmd {
 	typed, _, typedOK := hf.ParseRef(d.input.Value())
 	if d.sc.cur < len(d.results) && !(typedOK && d.shown != d.input.Value()) {
@@ -270,14 +355,17 @@ func (d *discover) view(a *App, w, h int) []string {
 	tb := newTable(w, hideColumns([]column{
 		{id: "name", title: "  NAME"},
 		{id: "params", title: "PARAMS", w: 8, right: true},
+		{id: "size", title: "SIZE", w: 13, right: true, min: 80},
 		{id: "downloads", title: "DOWNLOADS", w: 11, right: true},
 		{id: "likes", title: "LIKES", w: 7, right: true},
 		{id: "updated", title: "UPDATED", w: 9, min: 90},
+		{id: "downloaded", title: "DOWNLOADED", w: 16, min: 110},
 		{id: "features", title: "FEATURES", w: 18, min: 100},
 	}, func(id string) bool { return a.cfg.Hidden("discover", id) })...)
 	tb = tb.sorted(d.sort, discoverSort)
 	lines = append(lines, tb.header())
 	from, to := d.sc.window(len(d.results), max(1, h-len(lines)))
+	d.winFrom, d.winTo = from, to
 	for i := from; i < to; i++ {
 		r := d.results[i]
 		owner, name, _ := strings.Cut(r.ID, "/")
@@ -294,12 +382,18 @@ func (d *discover) view(a *App, w, h int) []string {
 		if r.GGUF.Params > 0 {
 			params = gguf.Params(r.GGUF.Params)
 		}
+		size := num(d.sizes[r.ID].String())
+		if d.fetching[r.ID] {
+			size = dim("…")
+		}
 		lines = append(lines, tb.row(i == d.sc.cur,
 			[]seg{mark, t(owner+"/", sDim), t(name, nameStyle)},
 			num(params),
+			size,
 			num(units.Count(r.Downloads)),
 			num(units.Count(r.Likes)),
 			dim(units.Ago(r.Updated)),
+			styled(localQuants(a.models, r.ID), sGood),
 			feats,
 		))
 	}
@@ -313,6 +407,20 @@ func (d *discover) findGGUF(a *App, r hf.Summary) tea.Cmd {
 	d.seq++
 	a.say("%s isn't GGUF, looking for GGUF versions of it", name)
 	return d.search(a)
+}
+
+// localQuants lists the quantizations of a repo that are already downloaded.
+func localQuants(models []store.Model, repo string) string {
+	var out []string
+	for _, m := range models {
+		if m.Repo == repo {
+			out = append(out, m.Quant)
+		}
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	return "✓ " + strings.Join(out, ", ")
 }
 
 func downloaded(models []store.Model, repo string) bool {

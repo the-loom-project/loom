@@ -56,6 +56,8 @@ func options() []opt {
 		columnPref("Library columns", "library", "gpu", "GPU fit", "Whether the model fits in your GPU's memory."),
 
 		columnPref("Discover columns", "discover", "params", "Parameters", "How many billions of parameters the model has."),
+		columnPref("Discover columns", "discover", "size", "Size", "The smallest and largest download of the model across its quantizations. Looked up for the rows on screen."),
+		columnPref("Discover columns", "discover", "downloaded", "Downloaded", "Which quantizations of the model you already have. Hidden on narrow terminals anyway."),
 		columnPref("Discover columns", "discover", "downloads", "Downloads", "How often it was downloaded from Hugging Face."),
 		columnPref("Discover columns", "discover", "likes", "Likes", "Its likes on Hugging Face."),
 		columnPref("Discover columns", "discover", "updated", "Updated", "When it was last changed. Hidden on narrow terminals anyway."),

@@ -122,7 +122,7 @@ func (l *library) hints(a *App) string {
 	if l.sort.picking {
 		return l.sort.hints(a)
 	}
-	return a.hints("confirm", "configure & run", "run", "run", "info", "details", "filter", "filter", "search", "search", "sort", "sort", "delete", "delete", "help", "all keys")
+	return a.hints("confirm", "configure & run", "run", "run", "info", "details", "discover", "find online", "filter", "filter", "search", "search", "sort", "sort", "delete", "delete", "help", "all keys")
 }
 
 func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
@@ -190,6 +190,12 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 		}
 	case a.is(key, "info"):
 		a.push(&infoView{model: *e.model})
+	case a.is(key, "discover"):
+		if e.model.Repo == "" {
+			a.complain("%s is a local file, it isn't on Hugging Face", e.model.Name())
+			return nil
+		}
+		return a.disc.find(a, e.model.Repo)
 	case a.is(key, "confirm", "run") && e.model.Kind() == gguf.NotLM:
 		a.complain("%s isn't a language model, so llama.cpp can't run it (%s deletes it)", e.model.Name(), a.keys.Label("delete"))
 	case a.is(key, "confirm"):

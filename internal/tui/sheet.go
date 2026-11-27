@@ -32,25 +32,42 @@ type chatDoneMsg struct{ err error }
 type editorDoneMsg struct {
 	s    *sheet
 	path string
+	base []string
 	err  error
 }
 
-const flagsHeader = "# Extra llama.cpp flags. Lines starting with # are ignored, and line breaks are fine.\n# `llama-server --help` lists them all.\n"
+// flagLines is the launch command as one flag and its value per line. The
+// lines that come from the settings, as opposed to the extra flags, are base.
+func (s *sheet) flagLines() (lines, base []string) {
+	for _, arg := range llama.Build(s.env, s.cfg).Args {
+		if arg.Setting == "extra" {
+			lines = append(lines, strings.Join(arg.Words(), " "))
+			continue
+		}
+		line := llama.Shell(arg.Words())
+		lines, base = append(lines, line), append(base, line)
+	}
+	return lines, base
+}
 
-// editFlags opens the extra flags in the user's editor, in this terminal.
+// editFlags opens the flags llama.cpp will get in the user's editor, in this terminal.
 func (s *sheet) editFlags(a *App) tea.Cmd {
 	f, err := os.CreateTemp("", "loom-flags-*.txt")
 	if err != nil {
 		a.complain("%v", err)
 		return nil
 	}
-	f.WriteString(flagsHeader + s.cfg.Extra + "\n")
+	lines, base := s.flagLines()
+	f.WriteString(strings.Join(lines, "\n") + "\n")
 	f.Close()
 	argv := a.cfg.EditorCmd()
 	cmd := exec.Command(argv[0], append(argv[1:], f.Name())...)
-	return tea.ExecProcess(cmd, func(err error) tea.Msg { return editorDoneMsg{s, f.Name(), err} })
+	return tea.ExecProcess(cmd, func(err error) tea.Msg { return editorDoneMsg{s, f.Name(), base, err} })
 }
 
+// flagsEdited keeps every line that isn't one of the settings' own flags as
+// an extra flag. llama.cpp lets a later flag win, so changing a line from the
+// settings overrides it.
 func (s *sheet) flagsEdited(a *App, m editorDoneMsg) {
 	data, err := os.ReadFile(m.path)
 	os.Remove(m.path)
@@ -62,13 +79,22 @@ func (s *sheet) flagsEdited(a *App, m editorDoneMsg) {
 		a.complain("%v", err)
 		return
 	}
-	var words []string
+	own := map[string]int{}
+	for _, line := range m.base {
+		own[line]++
+	}
+	var extra []string
 	for _, line := range strings.Split(string(data), "\n") {
-		if !strings.HasPrefix(strings.TrimSpace(line), "#") {
-			words = append(words, strings.Fields(line)...)
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "" || strings.HasPrefix(line, "#"):
+		case own[line] > 0:
+			own[line]--
+		default:
+			extra = append(extra, line)
 		}
 	}
-	s.cfg.Extra = strings.Join(words, " ")
+	s.cfg.Extra = strings.Join(extra, " ")
 }
 
 func newSheet(a *App, m store.Model) *sheet {
