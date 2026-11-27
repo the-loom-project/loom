@@ -140,15 +140,32 @@ func (c *Client) fetch(ctx context.Context, dir, repo, sha string, f File, prog 
 		return err
 	}
 	part := blob + ".incomplete"
-	have := int64(0)
-	if st, err := os.Stat(part); err == nil {
+	have := int64(-1)
+	if st, err := os.Stat(part); err == nil && st.Size() <= f.Size {
 		have = st.Size()
 	}
-	if have > f.Size {
-		have = 0
+	if have < f.Size {
+		url := fmt.Sprintf("%s/%s/resolve/%s/%s", base, repo, sha, f.Path)
+		if err := c.receive(ctx, url, part, max(have, 0), prog); err != nil {
+			return err
+		}
+	} else {
+		prog.skip(have)
 	}
+	if f.SHA256 != "" {
+		if err := verify(part, f.SHA256); err != nil {
+			os.Remove(part)
+			return err
+		}
+	}
+	if err := os.Rename(part, blob); err != nil {
+		return err
+	}
+	return linkSnapshot(blob, link)
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/%s/resolve/%s/%s", base, repo, sha, f.Path), nil)
+func (c *Client) receive(ctx context.Context, url, part string, have int64, prog *meter) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
@@ -179,22 +196,7 @@ func (c *Client) fetch(ctx context.Context, dir, repo, sha string, f File, prog 
 	}
 	prog.skip(have)
 	_, err = io.Copy(out, io.TeeReader(resp.Body, prog))
-	if cerr := out.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return err
-	}
-	if f.SHA256 != "" {
-		if err := verify(part, f.SHA256); err != nil {
-			os.Remove(part)
-			return err
-		}
-	}
-	if err := os.Rename(part, blob); err != nil {
-		return err
-	}
-	return linkSnapshot(blob, link)
+	return errors.Join(err, out.Close())
 }
 
 func linkSnapshot(blob, link string) error {
