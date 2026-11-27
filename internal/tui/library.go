@@ -92,8 +92,7 @@ func (l *library) kindMatches(a *App, m *store.Model) bool {
 	return false
 }
 
-func (l *library) selected(a *App) (entry, bool) {
-	es := l.entries(a)
+func (l *library) selected(es []entry) (entry, bool) {
 	if l.sc.cur >= len(es) {
 		return entry{}, false
 	}
@@ -106,7 +105,8 @@ func (l *library) hints(a *App) string {
 	if l.searching {
 		return a.hints("confirm", "keep filter", "back", "clear")
 	}
-	if e, ok := l.selected(a); ok && e.dl != nil {
+	e, ok := l.selected(l.entries(a))
+	if ok && e.dl != nil {
 		toggle := "resume"
 		switch _, st, _ := e.dl.snapshot(); st {
 		case dlRunning:
@@ -117,7 +117,7 @@ func (l *library) hints(a *App) string {
 		return a.hints("pause", toggle, "delete", "cancel", "search", "search", "help", "all keys")
 	}
 	pairs := []string{"confirm", "configure & run", "run", "run", "info", "details", "discover", "find online", "filter", "filter", "search", "search", "delete", "delete", "help", "all keys"}
-	if e, ok := l.selected(a); ok && e.model != nil && a.outdated(*e.model) {
+	if ok && e.model != nil && a.outdated(*e.model) {
 		pairs = append([]string{"update", "update to latest"}, pairs...)
 	}
 	return a.hints(pairs...)
@@ -146,8 +146,9 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 		}
 		return nil
 	}
-	n := len(l.entries(a))
-	e, hasSel := l.selected(a)
+	es := l.entries(a)
+	n := len(es)
+	e, hasSel := l.selected(es)
 	switch {
 	case a.is(key, "up"):
 		l.sc.move(-1, n)
