@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -19,6 +20,7 @@ const (
 	Embedding
 	NoChat
 	NotLM
+	Unreadable
 )
 
 func (k Kind) String() string {
@@ -27,12 +29,15 @@ func (k Kind) String() string {
 		return "chat"
 	case Embedding:
 		return "embedding"
-	}
-	if k == NotLM {
+	case NotLM:
 		return "not a language model"
+	case Unreadable:
+		return "unreadable"
 	}
 	return "no chat template"
 }
+
+func (k Kind) Runnable() bool { return k != NotLM && k != Unreadable }
 
 type Info struct {
 	Arch      string
@@ -262,6 +267,16 @@ func BestMMProj(paths []string) string {
 }
 
 func mmprojRank(path string) int { return slices.Index([]string{"F32", "BF16", "F16"}, QuantOf(path)) }
+
+var shardRe = regexp.MustCompile(`-\d{5}-of-(\d{5})\.gguf$`)
+
+func Shards(path string) int {
+	if m := shardRe.FindStringSubmatch(path); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n
+	}
+	return 1
+}
 
 var auxRe = regexp.MustCompile(`(?i)(^|/)(mtp[-_/]|[^/]*imatrix)`)
 

@@ -39,7 +39,7 @@ type Model struct {
 
 func (m Model) Kind() gguf.Kind {
 	if m.Info == nil {
-		return gguf.NoChat
+		return gguf.Unreadable
 	}
 	return m.Info.Kind()
 }
@@ -155,6 +155,9 @@ func scanRepo(repo, dir string) []Model {
 	var out []Model
 	for q, files := range byQuant {
 		sort.Strings(files)
+		if len(files) < gguf.Shards(files[0]) {
+			continue
+		}
 		m := Model{Repo: repo, Quant: q, Source: HF, Path: files[0], MMProj: mmproj, files: files, Revision: revision, Blobs: map[string]string{}}
 		m.Meta, m.HasMeta = hf.ReadMeta(filepath.Dir(dir), repo)
 		for _, f := range append(append([]string{}, files...), mmproj) {

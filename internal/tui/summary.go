@@ -85,8 +85,8 @@ func home(path string) string {
 }
 
 func kindLabel(k gguf.Kind, vision bool) string {
-	s := map[gguf.Kind]string{gguf.Chat: "chat", gguf.Embedding: "embedding", gguf.NoChat: "no chat", gguf.NotLM: "can't run"}[k]
-	if vision && k != gguf.NotLM {
+	s := map[gguf.Kind]string{gguf.Chat: "chat", gguf.Embedding: "embedding", gguf.NoChat: "no chat", gguf.NotLM: "can't run", gguf.Unreadable: "unreadable"}[k]
+	if vision && k.Runnable() {
 		s += "+vision"
 	}
 	return s

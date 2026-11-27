@@ -79,7 +79,7 @@ func (l *library) kindMatches(a *App, m *store.Model) bool {
 	case "":
 		return true
 	case "other":
-		return m.Kind() == gguf.NotLM
+		return !m.Kind().Runnable()
 	case "chat":
 		return m.Kind() == gguf.Chat
 	case "vision":
@@ -87,7 +87,7 @@ func (l *library) kindMatches(a *App, m *store.Model) bool {
 	case "embedding":
 		return m.Kind() == gguf.Embedding
 	case "fits":
-		return m.Kind() != gguf.NotLM && gpuFit(a, m.Size) == hw.Fits
+		return m.Kind().Runnable() && gpuFit(a, m.Size) == hw.Fits
 	}
 	return false
 }
@@ -212,6 +212,8 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		return a.disc.find(a, e.model.Repo)
+	case a.is(key, "confirm", "run") && e.model.Kind() == gguf.Unreadable:
+		a.complain("%s can't be read, the download may be damaged (%s deletes it): %v", e.model.Name(), a.keys.Label("delete"), e.model.Err)
 	case a.is(key, "confirm", "run") && e.model.Kind() == gguf.NotLM:
 		a.complain("%s isn't a language model, so llama.cpp can't run it (%s deletes it)", e.model.Name(), a.keys.Label("delete"))
 	case a.is(key, "confirm"):
@@ -361,7 +363,7 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 	switch m.Kind() {
 	case gguf.Chat:
 		kind = plain(label)
-	case gguf.NotLM:
+	case gguf.NotLM, gguf.Unreadable:
 		kind, gpu = styled(label, sBad), nil
 	}
 	return tb.row(sel, dim(author), name, plain(params), dim(m.Quant), plain(units.Bytes(m.Size)), dim(ctx), kind, gpu, updated)
