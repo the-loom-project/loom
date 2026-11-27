@@ -35,6 +35,7 @@ var formRows = []formRow{
 
 const (
 	rowTask = 0
+	rowApp  = 5
 	rowGGUF = 6
 )
 
@@ -151,7 +152,7 @@ func (v *filterForm) body(a *App, w, h int) []string {
 		val := v.value(i)
 		if val == "" && i != rowGGUF {
 			val = sDim.Render("any")
-			if i == formRowApp() {
+			if i == rowApp {
 				val = sDim.Render("any app")
 			}
 		}
@@ -174,7 +175,5 @@ func (v *filterForm) body(a *App, w, h int) []string {
 	}
 	return lines
 }
-
-func formRowApp() int { return 5 }
 
 func stripStyle(s string) string { return ansi.Strip(s) }
