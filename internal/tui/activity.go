@@ -21,14 +21,10 @@ func newActivity() *activity { return &activity{back: map[*llama.Instance]int{}}
 
 func (v *activity) typing() bool { return false }
 
-type item struct {
-	srv *llama.Instance
-}
-
-func (v *activity) items(a *App) []item {
-	var out []item
+func (v *activity) items(a *App) []*llama.Instance {
+	out := make([]*llama.Instance, 0, len(a.servers))
 	for i := len(a.servers) - 1; i >= 0; i-- {
-		out = append(out, item{srv: a.servers[i]})
+		out = append(out, a.servers[i])
 	}
 	return out
 }
@@ -46,7 +42,7 @@ func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
 	case tea.KeyMsg:
 		its := v.items(a)
 		n := len(its)
-		var cur item
+		var cur *llama.Instance
 		if v.sc.cur < n {
 			cur = its[v.sc.cur]
 		}
@@ -62,38 +58,39 @@ func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
 		case a.is(msg, "clear"):
 			a.clearFinished()
 		case a.is(msg, "confirm"):
-			if cur.srv != nil {
-				a.push(&serverView{inst: cur.srv})
+			if cur != nil {
+				a.push(&serverView{inst: cur})
 			}
 		case a.is(msg, "open"):
-			if cur.srv != nil && cur.srv.Config.Mode == llama.Serve {
-				openBrowser(cur.srv.URL())
+			if cur != nil && cur.Config.Mode == llama.Serve {
+				openBrowser(cur.URL())
 			}
 		case a.is(msg, "log-up"):
-			if cur.srv != nil {
-				v.back[cur.srv] += 10
+			if cur != nil {
+				v.back[cur] += 10
 			}
 		case a.is(msg, "log-down"):
-			if cur.srv != nil {
-				v.back[cur.srv] = max(0, v.back[cur.srv]-10)
+			if cur != nil {
+				v.back[cur] = max(0, v.back[cur]-10)
 			}
 		case a.is(msg, "delete"):
 			v.remove(a, cur)
 		case a.is(msg, "copy"), a.is(msg, "copy-raw"):
-			if cur.srv != nil {
-				a.copyCommand(llama.Env{Model: cur.srv.Model, HW: a.hw}, cur.srv.Config, "", a.is(msg, "copy-raw"))
+			if cur != nil {
+				a.copyCommand(llama.Env{Model: cur.Model, HW: a.hw}, cur.Config, "", a.is(msg, "copy-raw"))
 			}
 		}
 	}
 	return nil
 }
 
-func (v *activity) remove(a *App, it item) {
+func (v *activity) remove(a *App, s *llama.Instance) {
 	switch {
-	case it.srv != nil && it.srv.Alive():
-		a.push(&confirm{heading: "Stop " + it.srv.Model.Name() + "?", text: fmt.Sprintf("The server on port %d shuts down.", it.srv.Port), yes: func(a *App) tea.Cmd { it.srv.Stop(); return nil }})
-	case it.srv != nil:
-		a.servers = without(a.servers, it.srv)
+	case s == nil:
+	case s.Alive():
+		a.push(&confirm{heading: "Stop " + s.Model.Name() + "?", text: fmt.Sprintf("The server on port %d shuts down.", s.Port), yes: func(a *App) tea.Cmd { s.Stop(); return nil }})
+	default:
+		a.servers = without(a.servers, s)
 	}
 }
 
@@ -129,24 +126,19 @@ func (v *activity) view(a *App, w, h int) []string {
 	lines := []string{"", tb.header()}
 	from, to := v.sc.window(len(its), max(1, listH-2))
 	for i := from; i < to; i++ {
-		lines = append(lines, serverRow(a, tb, its[i].srv, i == v.sc.cur))
+		lines = append(lines, serverRow(a, tb, its[i], i == v.sc.cur))
 	}
 	for len(lines) < listH {
 		lines = append(lines, "")
 	}
 
-	var cur item
-	if v.sc.cur < len(its) {
-		cur = its[v.sc.cur]
-	}
-	return append(lines, v.panel(a, cur, w, h-len(lines))...)
+	return append(lines, v.panel(a, its[v.sc.cur], w, h-len(lines))...)
 }
 
-func (v *activity) panel(a *App, it item, w, h int) []string {
+func (v *activity) panel(a *App, s *llama.Instance, w, h int) []string {
 	if h < 3 {
 		return nil
 	}
-	s := it.srv
 	title := sBold.Render(s.Model.Name()) + sDim.Render("  log")
 	if s.Config.Mode == llama.Serve {
 		title += sDim.Render("  ·  ") + sFlag.Render(s.URL())
