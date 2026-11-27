@@ -381,7 +381,7 @@ func (a *App) openSheet(m store.Model, runNow bool) tea.Cmd {
 }
 
 func (a *App) copyCommand(e llama.Env, c llama.Config, profile string, raw bool) {
-	base := llama.Defaults(e).Fix(e)
+	base := llama.Defaults().Fix(e)
 	if p, ok := a.profiles.Profile(e.Model.Ref, profile); ok {
 		base = p.Fix(e)
 	}

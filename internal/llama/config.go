@@ -38,7 +38,7 @@ type Env struct {
 	HW    hw.Hardware
 }
 
-func Defaults(e Env) Config {
+func Defaults() Config {
 	return Config{
 		Mode: Serve, Offload: "auto", Experts: "gpu", KVCache: "f16", Flash: "auto",
 		Port: 8080, Listen: "local", Vision: true,
@@ -46,7 +46,7 @@ func Defaults(e Env) Config {
 }
 
 func (c Config) Fix(e Env) Config {
-	d := Defaults(e)
+	d := Defaults()
 	pick := func(v, def string, ok ...string) string {
 		for _, o := range ok {
 			if v == o {

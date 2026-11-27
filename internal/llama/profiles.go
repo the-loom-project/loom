@@ -54,7 +54,7 @@ func (p *Profiles) Get(e Env) Config {
 	if l, ok := p.f.Last[e.Model.Ref]; ok {
 		return l.Config.Fix(e)
 	}
-	return Defaults(e).Fix(e)
+	return Defaults().Fix(e)
 }
 
 // LastProfile is the profile the model's last run started from, or "".

@@ -114,7 +114,7 @@ func newSheetWith(a *App, m store.Model, profile string) *sheet {
 // load switches to a saved profile, or to the defaults for "".
 func (s *sheet) load(a *App, profile string) {
 	s.profile = profile
-	s.cfg = llama.Defaults(s.env).Fix(s.env)
+	s.cfg = llama.Defaults().Fix(s.env)
 	if c, ok := a.profiles.Profile(s.env.Model.Ref, profile); ok {
 		s.cfg = c.Fix(s.env)
 	}
@@ -226,7 +226,7 @@ func (s *sheet) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 	case a.is(key, "profile"):
 		return s, s.pickProfile(a)
 	case a.is(key, "reset"):
-		s.cfg = llama.Defaults(s.env).Fix(s.env)
+		s.cfg = llama.Defaults().Fix(s.env)
 	case a.is(key, "copy"), a.is(key, "copy-raw"):
 		a.copyCommand(s.env, s.cfg, s.profile, a.is(key, "copy-raw"))
 	case a.is(key, "confirm"):
