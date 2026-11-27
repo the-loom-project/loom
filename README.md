@@ -38,7 +38,7 @@ Six views, switched with `←` `→`, `tab` or `1`-`6`. `?` lists all keys.
 
 | View     | What it does                                                                                                                         |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Library  | Downloaded models with GPU fit. `enter` runs, `i` details, `/` search. |
+| Library  | Downloaded models with GPU fit. `enter` runs, `i` details, `/` search, `S` sorts (`←` `→` pick the column, `enter` flips the order). |
 | Discover | Search Hugging Face, see quant sizes and GPU fit. `u` shows unrunnable.                                                              |
 | Activity | Downloads and running servers, with the selected server's log.                                                                       |
 | Doctor   | Health checks for llama.cpp, GPU, memory, disk and token. `r` rechecks.                                                              |

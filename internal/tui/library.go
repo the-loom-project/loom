@@ -16,6 +16,7 @@ import (
 )
 
 type library struct {
+	sort      sorter
 	sc        scroller
 	query     textinput.Model
 	searching bool
@@ -53,6 +54,7 @@ func (l *library) entries(a *App) []entry {
 		}
 		out = append(out, entry{model: m})
 	}
+	out = sortedBy(out, l.sort, librarySort, librarySortBy(a))
 	if l.kind == "" || l.kind == "other" {
 		for i := range a.others {
 			if strings.Contains(strings.ToLower(a.others[i].Repo), q) {
@@ -61,6 +63,28 @@ func (l *library) entries(a *App) []entry {
 		}
 	}
 	return out
+}
+
+var librarySort = []sortCol{{"name", false}, {"params", true}, {"quant", false}, {"size", true}, {"context", true}, {"type", false}, {"gpu", false}}
+
+func librarySortBy(a *App) map[string]func(x, y entry) int {
+	info := func(e entry) (params, ctx uint64) {
+		if e.model.Info != nil {
+			return e.model.Info.Params, e.model.Info.Context
+		}
+		return 0, 0
+	}
+	return map[string]func(x, y entry) int{
+		"name":    func(x, y entry) int { return cmpText(x.model.Ref, y.model.Ref) },
+		"params":  func(x, y entry) int { p, _ := info(x); q, _ := info(y); return cmpNum(p, q) },
+		"quant":   func(x, y entry) int { return cmpText(x.model.Quant, y.model.Quant) },
+		"size":    func(x, y entry) int { return cmpNum(x.model.Size, y.model.Size) },
+		"context": func(x, y entry) int { _, p := info(x); _, q := info(y); return cmpNum(p, q) },
+		"type": func(x, y entry) int {
+			return cmpText(kindLabel(x.model.Kind(), x.model.MMProj != ""), kindLabel(y.model.Kind(), y.model.MMProj != ""))
+		},
+		"gpu": func(x, y entry) int { return cmpNum(int(gpuFit(a, x.model.Size)), int(gpuFit(a, y.model.Size))) },
+	}
 }
 
 func (l *library) kindMatches(a *App, m *store.Model) bool {
@@ -89,18 +113,25 @@ func (l *library) selected(a *App) (entry, bool) {
 	return es[l.sc.cur], true
 }
 
-func (l *library) typing() bool { return l.searching }
+func (l *library) typing() bool { return l.searching || l.sort.picking }
 
 func (l *library) hints(a *App) string {
 	if l.searching {
 		return a.hints("confirm", "keep filter", "back", "clear")
 	}
-	return a.hints("confirm", "configure & run", "run", "run", "info", "details", "filter", "filter", "search", "search", "delete", "delete", "help", "all keys")
+	if l.sort.picking {
+		return l.sort.hints(a)
+	}
+	return a.hints("confirm", "configure & run", "run", "run", "info", "details", "filter", "filter", "search", "search", "sort", "sort", "delete", "delete", "help", "all keys")
 }
 
 func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 	key, ok := msg.(tea.KeyMsg)
 	if !ok {
+		return nil
+	}
+	if l.sort.key(a, key, librarySort) {
+		l.sc = scroller{}
 		return nil
 	}
 	if l.searching {
@@ -136,6 +167,9 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 		l.sc.cur = 0
 	case a.is(key, "bottom"):
 		l.sc.cur = max(0, n-1)
+	case a.is(key, "sort"):
+		l.sort.start(librarySort)
+		l.sc = scroller{}
 	case a.is(key, "search"):
 		l.searching = true
 		return l.query.Focus()
@@ -237,14 +271,15 @@ func (l *library) view(a *App, w, h int) []string {
 	}
 
 	tb := newTable(w, hideColumns([]column{
-		{title: "NAME"},
-		{id: "params", title: "PARAMS", w: 7, right: true},
+		{id: "name", title: "NAME"},
+		{id: "params", title: "PARAMS", w: 8, right: true},
 		{id: "quant", title: "QUANT", w: 10, min: 90},
 		{id: "size", title: "SIZE", w: 8, right: true},
 		{id: "context", title: "CTX", w: 6, right: true, min: 80},
 		{id: "type", title: "TYPE", w: 12},
 		{id: "gpu", title: "GPU", w: 14},
 	}, func(id string) bool { return a.cfg.Hidden("library", id) })...)
+	tb = tb.sorted(l.sort, librarySort)
 	lines = append(lines, tb.header())
 	es := l.entries(a)
 	if len(es) == 0 {

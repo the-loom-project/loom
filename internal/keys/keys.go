@@ -43,6 +43,7 @@ var Actions = []Action{
 	{"delete", "Items", "Delete the selected item (stops a server, cancels a download)", []string{"x", "delete"}},
 	{"edit", "Items", "Edit the selected item (renames a profile, edits a text setting)", []string{"e"}},
 	{"reset", "Items", "Reset to defaults (launch sheet, Config)", []string{"d"}},
+	{"sort", "Lists", "Sort the table: ← → pick the column, enter flips ascending / descending", []string{"S"}},
 	{"copy", "Commands", "Copy the loom command", []string{"y"}},
 	{"copy-raw", "Commands", "Copy the llama.cpp command", []string{"Y"}},
 	{"open", "Commands", "Open in the browser", []string{"o"}},

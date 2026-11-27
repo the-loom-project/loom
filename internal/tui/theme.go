@@ -129,9 +129,12 @@ type column struct {
 }
 
 type table struct {
-	cols   []column
-	widths []int
-	total  int
+	cols     []column
+	widths   []int
+	total    int
+	sortCol  int
+	sortDesc bool
+	picking  bool
 }
 
 // hideColumns drops the columns whose id is hidden in the config.
@@ -145,7 +148,7 @@ func hideColumns(cols []column, hidden func(id string) bool) []column {
 }
 
 func newTable(total int, cols ...column) table {
-	tb := table{cols: cols, widths: make([]int, len(cols)), total: total}
+	tb := table{cols: cols, widths: make([]int, len(cols)), total: total, sortCol: -1}
 	used, shown := 1, 0
 	flex := -1
 	for i, c := range cols {
@@ -166,19 +169,46 @@ func newTable(total int, cols ...column) table {
 	return tb
 }
 
+// sorted marks the header of the column the rows are sorted by.
+func (tb table) sorted(s sorter, cols []sortCol) table {
+	id, desc, on := s.active(cols)
+	if !on {
+		return tb
+	}
+	for i, c := range tb.cols {
+		if c.id == id {
+			tb.sortCol, tb.sortDesc, tb.picking = i, desc, s.picking
+		}
+	}
+	return tb
+}
+
 func (tb table) header() string {
 	var parts []string
 	for i, c := range tb.cols {
-		if tb.widths[i] == 0 {
+		w := tb.widths[i]
+		if w == 0 {
 			continue
 		}
+		title := c.title
+		if i == tb.sortCol {
+			arrow := "▲"
+			if tb.sortDesc {
+				arrow = "▼"
+			}
+			title = clip(strings.TrimRight(title, " "), w-2) + " " + arrow
+		}
+		cell := fit(title, w)
 		if c.right {
-			parts = append(parts, right(c.title, tb.widths[i]))
+			cell = right(title, w)
+		}
+		if i == tb.sortCol && tb.picking {
+			parts = append(parts, sAccent.Bold(true).Render(cell))
 		} else {
-			parts = append(parts, fit(c.title, tb.widths[i]))
+			parts = append(parts, sDim.Render(cell))
 		}
 	}
-	return sDim.Render(" " + strings.Join(parts, "  "))
+	return sDim.Render(" ") + strings.Join(parts, sDim.Render("  "))
 }
 
 func (tb table) row(selected bool, cells ...[]seg) string {

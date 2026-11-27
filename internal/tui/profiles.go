@@ -5,15 +5,33 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"loom/internal/llama"
 	"loom/internal/store"
 )
 
-type profilesView struct{ sc scroller }
+type profilesView struct {
+	sc   scroller
+	sort sorter
+}
 
-func (v *profilesView) typing() bool { return false }
+var profilesSort = []sortCol{{"model", false}, {"profile", false}}
+
+var profilesSortBy = map[string]func(x, y llama.Entry) int{
+	"model":   func(x, y llama.Entry) int { return cmpText(x.Ref, y.Ref) },
+	"profile": func(x, y llama.Entry) int { return cmpText(x.Name, y.Name) },
+}
+
+func (v *profilesView) entries(a *App) []llama.Entry {
+	return sortedBy(a.profiles.All(), v.sort, profilesSort, profilesSortBy)
+}
+
+func (v *profilesView) typing() bool { return v.sort.picking }
 
 func (v *profilesView) hints(a *App) string {
-	return a.hints("run", "run", "confirm", "configure", "edit", "rename", "delete", "delete", "help", "all keys")
+	if v.sort.picking {
+		return v.sort.hints(a)
+	}
+	return a.hints("run", "run", "confirm", "configure", "edit", "rename", "sort", "sort", "delete", "delete", "help", "all keys")
 }
 
 func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
@@ -21,7 +39,11 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 	if !ok {
 		return nil
 	}
-	all := a.profiles.All()
+	if v.sort.key(a, key, profilesSort) {
+		v.sc = scroller{}
+		return nil
+	}
+	all := v.entries(a)
 	n := len(all)
 	switch {
 	case a.is(key, "up"):
@@ -32,6 +54,9 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 		v.sc.move(-10, n)
 	case a.is(key, "page-down"):
 		v.sc.move(10, n)
+	case a.is(key, "sort"):
+		v.sort.start(profilesSort)
+		v.sc = scroller{}
 	case a.is(key, "top"):
 		v.sc.cur = 0
 	case a.is(key, "bottom"):
@@ -77,13 +102,13 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 }
 
 func (v *profilesView) view(a *App, w, h int) []string {
-	all := a.profiles.All()
+	all := v.entries(a)
 	if len(all) == 0 {
 		return []string{"", "", "  " + sBold.Render("No profiles yet."), "",
 			"  In the launch sheet from " + sBold.Render("Library") + ", press " + sBold.Render(a.keys.Label("save")) + " to save its settings as a profile."}
 	}
-	tb := newTable(w, column{title: "MODEL", w: 40}, column{title: "PROFILE", w: 20}, column{title: "SETTINGS"}, column{title: "", w: 16, min: 110})
-	lines := []string{"", tb.header()}
+	tb := newTable(w, column{id: "model", title: "MODEL", w: 40}, column{id: "profile", title: "PROFILE", w: 20}, column{title: "SETTINGS"}, column{title: "", w: 16, min: 110})
+	lines := []string{"", tb.sorted(v.sort, profilesSort).header()}
 	from, to := v.sc.window(len(all), max(1, h-len(lines)))
 	for i := from; i < to; i++ {
 		e := all[i]

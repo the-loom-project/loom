@@ -20,6 +20,8 @@ type discover struct {
 	typingQ bool
 	sc      scroller
 	results []hf.Summary
+	natural []hf.Summary
+	sort    sorter
 	shown   string
 	loading bool
 	err     error
@@ -57,7 +59,7 @@ func (d *discover) init(a *App) tea.Cmd {
 	})
 }
 
-func (d *discover) typing() bool { return d.typingQ }
+func (d *discover) typing() bool { return d.typingQ || d.sort.picking }
 
 func (d *discover) search(a *App) tea.Cmd {
 	d.loading = true
@@ -70,11 +72,24 @@ func (d *discover) search(a *App) tea.Cmd {
 	}
 }
 
+var discoverSort = []sortCol{{"name", false}, {"params", true}, {"downloads", true}, {"likes", true}, {"updated", true}}
+
+var discoverSortBy = map[string]func(x, y hf.Summary) int{
+	"name":      func(x, y hf.Summary) int { return cmpText(x.ID, y.ID) },
+	"params":    func(x, y hf.Summary) int { return cmpNum(x.GGUF.Params, y.GGUF.Params) },
+	"downloads": func(x, y hf.Summary) int { return cmpNum(x.Downloads, y.Downloads) },
+	"likes":     func(x, y hf.Summary) int { return cmpNum(x.Likes, y.Likes) },
+	"updated":   func(x, y hf.Summary) int { return x.Updated.Compare(y.Updated) },
+}
+
 func (d *discover) hints(a *App) string {
 	if d.typingQ {
 		return a.hints("type", "search as you go", "confirm", "show results", "back", "stop typing")
 	}
-	return a.hints("confirm", "quants & download", "search", "search", "filter", "task", "unsupported", "can't-run models", "help", "all keys")
+	if d.sort.picking {
+		return d.sort.hints(a)
+	}
+	return a.hints("confirm", "quants & download", "search", "search", "sort", "sort", "filter", "task", "unsupported", "can't-run models", "help", "all keys")
 }
 
 func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
@@ -87,7 +102,8 @@ func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
 		}
 		d.loading, d.err, d.shown = false, msg.err, msg.query
 		if msg.err == nil {
-			d.results = msg.res
+			d.natural = msg.res
+			d.results = sortedBy(d.natural, d.sort, discoverSort, discoverSortBy)
 			d.sc = scroller{}
 		}
 	case debounceMsg:
@@ -102,6 +118,11 @@ func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
 
 func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 	n := len(d.results)
+	if d.sort.key(a, msg, discoverSort) {
+		d.results = sortedBy(d.natural, d.sort, discoverSort, discoverSortBy)
+		d.sc = scroller{}
+		return nil
+	}
 	if d.typingQ {
 		switch {
 		case a.is(msg, "confirm"):
@@ -147,6 +168,10 @@ func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 		d.sc.cur = 0
 	case a.is(msg, "bottom"):
 		d.sc.cur = max(0, n-1)
+	case a.is(msg, "sort"):
+		d.sort.start(discoverSort)
+		d.results = sortedBy(d.natural, d.sort, discoverSort, discoverSortBy)
+		d.sc = scroller{}
 	case a.is(msg, "search"):
 		d.typingQ = true
 		return d.input.Focus()
@@ -243,13 +268,14 @@ func (d *discover) view(a *App, w, h int) []string {
 	lines[4] = " " + sDim.Render(title)
 
 	tb := newTable(w, hideColumns([]column{
-		{title: "  NAME"},
-		{id: "params", title: "PARAMS", w: 7, right: true},
-		{id: "downloads", title: "DOWNLOADS", w: 9, right: true},
-		{id: "likes", title: "LIKES", w: 6, right: true},
+		{id: "name", title: "  NAME"},
+		{id: "params", title: "PARAMS", w: 8, right: true},
+		{id: "downloads", title: "DOWNLOADS", w: 11, right: true},
+		{id: "likes", title: "LIKES", w: 7, right: true},
 		{id: "updated", title: "UPDATED", w: 9, min: 90},
 		{id: "features", title: "FEATURES", w: 18, min: 100},
 	}, func(id string) bool { return a.cfg.Hidden("discover", id) })...)
+	tb = tb.sorted(d.sort, discoverSort)
 	lines = append(lines, tb.header())
 	from, to := d.sc.window(len(d.results), max(1, h-len(lines)))
 	for i := from; i < to; i++ {
