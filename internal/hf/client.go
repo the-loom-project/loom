@@ -13,6 +13,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"loom/internal/gguf"
@@ -23,10 +24,13 @@ const base = "https://huggingface.co"
 type Client struct {
 	http  *http.Client
 	token string
+
+	mu   sync.Mutex
+	busy map[string]chan struct{}
 }
 
 func New() *Client {
-	return &Client{http: &http.Client{}, token: findToken()}
+	return &Client{http: &http.Client{}, token: findToken(), busy: map[string]chan struct{}{}}
 }
 
 func (c *Client) HasToken() bool { return c.token != "" }

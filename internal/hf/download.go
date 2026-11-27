@@ -129,9 +129,38 @@ func WriteMeta(hub, repo string, m Meta) {
 	}
 }
 
+func (c *Client) lock(ctx context.Context, key string) (func(), error) {
+	for {
+		c.mu.Lock()
+		held, busy := c.busy[key]
+		if !busy {
+			done := make(chan struct{})
+			c.busy[key] = done
+			c.mu.Unlock()
+			return func() {
+				c.mu.Lock()
+				delete(c.busy, key)
+				c.mu.Unlock()
+				close(done)
+			}, nil
+		}
+		c.mu.Unlock()
+		select {
+		case <-held:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
 func (c *Client) fetch(ctx context.Context, dir, repo, sha string, f File, prog *meter) error {
 	blob := filepath.Join(dir, "blobs", f.BlobID)
 	link := filepath.Join(dir, "snapshots", sha, filepath.FromSlash(f.Path))
+	unlock, err := c.lock(ctx, blob)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if st, err := os.Stat(blob); err == nil && st.Size() == f.Size {
 		prog.skip(f.Size)
 		return linkSnapshot(blob, link)
