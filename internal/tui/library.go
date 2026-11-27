@@ -380,9 +380,20 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 	return tb.row(sel, dim(author), name, plain(params), dim(m.Quant), plain(units.Bytes(m.Size)), dim(ctx), kind, gpu, updated)
 }
 
-func (a *App) openSheet(m store.Model, runNow bool) tea.Cmd {
-	if !a.hw.Installed {
+func (a *App) llamaReady() bool {
+	switch {
+	case !a.hwKnown:
+		a.say("Still looking for llama.cpp, try again in a moment")
+	case !a.hw.Installed:
 		a.complain("llama.cpp isn't installed: sudo pacman -S llama-cpp ggml-vulkan")
+	default:
+		return true
+	}
+	return false
+}
+
+func (a *App) openSheet(m store.Model, runNow bool) tea.Cmd {
+	if !a.llamaReady() {
 		return nil
 	}
 	s := newSheet(a, m)

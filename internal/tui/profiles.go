@@ -47,8 +47,7 @@ func (v *profilesView) update(a *App, msg tea.Msg) tea.Cmd {
 			a.complain("%s isn't downloaded", e.Ref)
 			return nil
 		}
-		if !a.hw.Installed {
-			a.complain("llama.cpp isn't installed: sudo pacman -S llama-cpp ggml-vulkan")
+		if !a.llamaReady() {
 			return nil
 		}
 		return newSheetWith(a, m, e.Name).run(a)
