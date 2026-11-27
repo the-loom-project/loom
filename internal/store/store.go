@@ -142,6 +142,9 @@ func scanRepo(repo, dir string) []Model {
 			}
 			return nil
 		}
+		if !gguf.IsWeights(rel) {
+			return nil
+		}
 		q := gguf.QuantOf(rel)
 		byQuant[q] = append(byQuant[q], p)
 		return nil

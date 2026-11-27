@@ -248,7 +248,11 @@ func QuantOf(path string) string {
 
 func IsMMProj(path string) bool { return strings.Contains(strings.ToLower(path), "mmproj") }
 
-func IsWeights(path string) bool { return strings.HasSuffix(path, ".gguf") && !IsMMProj(path) }
+var auxRe = regexp.MustCompile(`(?i)(^|/)(mtp[-_/]|[^/]*imatrix)`)
+
+func IsWeights(path string) bool {
+	return strings.HasSuffix(path, ".gguf") && !IsMMProj(path) && !auxRe.MatchString(path)
+}
 
 func QuantNote(name string) string {
 	dynamic := ""

@@ -1,5 +1,10 @@
 package hw
 
+import (
+	"slices"
+	"strings"
+)
+
 type Fit int
 
 const (
@@ -42,22 +47,26 @@ func Pick(names []string, sizes []int64, vram int64) int {
 	if len(names) == 0 {
 		return -1
 	}
-	k, best := -1, -1
-	for i, n := range names {
-		if n == "Q4_K_M" {
-			k = i
-		}
-		if vram > 0 && float64(sizes[i]) <= 0.7*float64(vram) {
+	fits := func(i int) bool { return vram > 0 && float64(sizes[i]) <= 0.7*float64(vram) }
+	k := slices.IndexFunc(names, func(n string) bool { return strings.TrimPrefix(n, "UD-") == "Q4_K_M" })
+	if k < 0 {
+		k = slices.IndexFunc(names, func(n string) bool { return strings.Contains(n, "Q4") })
+	}
+	best := -1
+	for i := range names {
+		if fits(i) {
 			best = i
 		}
 	}
 	switch {
-	case k >= 0 && (vram == 0 || float64(sizes[k]) <= 0.7*float64(vram)):
+	case k >= 0 && (vram == 0 || fits(k)):
 		return k
 	case best >= 0 && (k < 0 || float64(sizes[best]) >= 0.75*float64(sizes[k])):
 		return best
 	case k >= 0:
 		return k
+	case vram > 0:
+		return 0
 	}
-	return 0
+	return len(names) / 2
 }
