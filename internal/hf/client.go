@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -411,7 +412,7 @@ func notLM(pipeline, arch string, context uint64) *Why {
 }
 
 func (s Summary) Runnable() *Why {
-	if !hasTag(s.Tags, "gguf") {
+	if !s.IsGGUF() {
 		return &Why{"not GGUF", "Not in GGUF format: llama.cpp only runs GGUF. Look for a GGUF conversion of it."}
 	}
 	return notLM(s.Pipeline, s.GGUF.Arch, s.GGUF.Context)
@@ -424,13 +425,4 @@ func (r *Repo) Runnable() *Why {
 	return notLM(r.Pipeline, r.Arch, r.Context)
 }
 
-func hasTag(tags []string, t string) bool {
-	for _, x := range tags {
-		if x == t {
-			return true
-		}
-	}
-	return false
-}
-
-func (s Summary) IsGGUF() bool { return hasTag(s.Tags, "gguf") }
+func (s Summary) IsGGUF() bool { return slices.Contains(s.Tags, "gguf") }

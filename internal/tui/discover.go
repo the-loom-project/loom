@@ -331,8 +331,8 @@ func (d *discover) find(a *App, repo string) tea.Cmd {
 func (d *discover) open(a *App) tea.Cmd {
 	typed, _, typedOK := hf.ParseRef(d.input.Value())
 	if d.sc.cur < len(d.results) && !(typedOK && d.shown != d.input.Value()) {
-		if why := d.results[d.sc.cur].Runnable(); why != nil && !d.results[d.sc.cur].IsGGUF() {
-			return d.findGGUF(a, d.results[d.sc.cur])
+		if r := d.results[d.sc.cur]; !r.IsGGUF() {
+			return d.findGGUF(a, r)
 		}
 	}
 	id := ""
