@@ -29,6 +29,9 @@ type Model struct {
 	Info   *gguf.Info
 	Err    error
 
+	Meta    hf.Meta
+	HasMeta bool
+
 	files []string
 }
 
@@ -145,6 +148,7 @@ func scanRepo(repo, dir string) []Model {
 	for q, files := range byQuant {
 		sort.Strings(files)
 		m := Model{Repo: repo, Quant: q, Source: HF, Path: files[0], MMProj: mmproj, files: files}
+		m.Meta, m.HasMeta = hf.ReadMeta(filepath.Dir(dir), repo)
 		m.Ref = repo
 		if q != "" {
 			m.Ref += ":" + q

@@ -75,6 +75,7 @@ func options() []opt {
 		percent("Colors", "Red beyond", "Sizes in Discover are red when bigger than your GPU memory plus this share of your system RAM, so the model can't be spread across both. Yellow is everything in between.", 0, 200, func(c *config.Config) *int { return &c.RedRAMPercent }),
 
 		columnPref("Library columns", "library", "author", "Author", "The user or organization that published the model."),
+		columnPref("Library columns", "library", "updated", "Updated", "When the model last changed on Hugging Face. Hidden on narrow terminals anyway."),
 		columnPref("Library columns", "library", "params", "Parameters", "How many billions of parameters the model has."),
 		columnPref("Library columns", "library", "quant", "Quantization", "How compressed the weights are (Q4_K_M, Q8_0, …). Hidden on narrow terminals anyway."),
 		columnPref("Library columns", "library", "size", "Size", "The size of the model on disk."),

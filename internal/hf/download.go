@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,6 +42,27 @@ func (c *Client) Download(ctx context.Context, hub, repo, sha string, files []Fi
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, "refs", "main"), []byte(sha), 0o644)
+}
+
+type Meta struct {
+	Tags    []string  `json:"tags"`
+	Gated   bool      `json:"gated"`
+	Updated time.Time `json:"updated"`
+}
+
+func ReadMeta(hub, repo string) (Meta, bool) {
+	var m Meta
+	b, err := os.ReadFile(filepath.Join(RepoDir(hub, repo), "loom.json"))
+	if err != nil || json.Unmarshal(b, &m) != nil {
+		return Meta{}, false
+	}
+	return m, true
+}
+
+func WriteMeta(hub, repo string, m Meta) {
+	if b, err := json.MarshalIndent(m, "", "  "); err == nil {
+		os.WriteFile(filepath.Join(RepoDir(hub, repo), "loom.json"), b, 0o644)
+	}
 }
 
 func (c *Client) fetch(ctx context.Context, dir, repo, sha string, f File, prog *meter) error {

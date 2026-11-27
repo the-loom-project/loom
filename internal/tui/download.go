@@ -29,6 +29,7 @@ type download struct {
 	cancel      context.CancelFunc
 	hub, sha    string
 	files       []hf.File
+	meta        hf.Meta
 
 	mu      sync.Mutex
 	prog    hf.Progress
@@ -84,10 +85,14 @@ func (a *App) startDownload(repo *hf.Repo, q hf.Quant) tea.Cmd {
 	for _, f := range files {
 		total += f.Size
 	}
-	d := &download{repo: repo.ID, quant: q.Name, started: time.Now(), hub: a.st.Hub(), sha: repo.SHA, files: files, prog: hf.Progress{Total: total}}
+	d := &download{repo: repo.ID, quant: q.Name, started: time.Now(), hub: a.st.Hub(), sha: repo.SHA, files: files, meta: metaOf(repo), prog: hf.Progress{Total: total}}
 	a.downloads = append(a.downloads, d)
 	a.say("Downloading %s:%s, progress is in Library", repo.ID, q.Name)
 	return a.runDownload(d)
+}
+
+func metaOf(r *hf.Repo) hf.Meta {
+	return hf.Meta{Tags: r.Tags, Gated: r.Gated, Updated: r.Updated}
 }
 
 func (a *App) runDownload(d *download) tea.Cmd {
@@ -131,6 +136,7 @@ func (a *App) downloadDone(msg dlDoneMsg) tea.Cmd {
 	d.mu.Unlock()
 	switch st {
 	case dlDone:
+		hf.WriteMeta(d.hub, d.repo, d.meta)
 		a.say("✓ Downloaded %s:%s, it's in your Library", d.repo, d.quant)
 		a.downloads = without(a.downloads, d)
 	case dlFailed:

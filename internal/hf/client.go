@@ -242,6 +242,7 @@ type File struct {
 type Repo struct {
 	ID        string
 	SHA       string
+	Updated   time.Time
 	Downloads int
 	Likes     int
 	Gated     bool
@@ -255,13 +256,14 @@ type Repo struct {
 
 func (c *Client) Repo(ctx context.Context, id string) (*Repo, error) {
 	var raw struct {
-		ID        string   `json:"id"`
-		SHA       string   `json:"sha"`
-		Downloads int      `json:"downloads"`
-		Likes     int      `json:"likes"`
-		Gated     gate     `json:"gated"`
-		Tags      []string `json:"tags"`
-		Pipeline  string   `json:"pipeline_tag"`
+		ID        string    `json:"id"`
+		SHA       string    `json:"sha"`
+		Updated   time.Time `json:"lastModified"`
+		Downloads int       `json:"downloads"`
+		Likes     int       `json:"likes"`
+		Gated     gate      `json:"gated"`
+		Tags      []string  `json:"tags"`
+		Pipeline  string    `json:"pipeline_tag"`
 		GGUF      struct {
 			Params  uint64 `json:"total"`
 			Arch    string `json:"architecture"`
@@ -279,7 +281,7 @@ func (c *Client) Repo(ctx context.Context, id string) (*Repo, error) {
 	if err := c.get(ctx, base+"/api/models/"+id+"?blobs=true", &raw); err != nil {
 		return nil, fmt.Errorf("%s: %w", id, err)
 	}
-	r := &Repo{ID: raw.ID, SHA: raw.SHA, Downloads: raw.Downloads, Likes: raw.Likes, Tags: raw.Tags, Pipeline: raw.Pipeline, Params: raw.GGUF.Params, Arch: raw.GGUF.Arch, Context: raw.GGUF.Context, Gated: bool(raw.Gated)}
+	r := &Repo{ID: raw.ID, SHA: raw.SHA, Updated: raw.Updated, Downloads: raw.Downloads, Likes: raw.Likes, Tags: raw.Tags, Pipeline: raw.Pipeline, Params: raw.GGUF.Params, Arch: raw.GGUF.Arch, Context: raw.GGUF.Context, Gated: bool(raw.Gated)}
 	for _, s := range raw.Siblings {
 		f := File{Path: s.Name, Size: s.Size, BlobID: s.BlobID}
 		if s.LFS != nil {

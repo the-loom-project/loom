@@ -276,6 +276,7 @@ func (l *library) view(a *App, w, h int) []string {
 		{id: "context", title: "CTX", w: 6, right: true, min: 80},
 		{id: "type", title: "TYPE", w: 12},
 		{id: "gpu", title: "GPU", w: 14},
+		{id: "updated", title: "UPDATED", w: 9, min: 100},
 	}, func(id string) bool { return a.cfg.Hidden("library", id) })...)
 	lines = append(lines, tb.header())
 	es := l.entries(a)
@@ -287,7 +288,7 @@ func (l *library) view(a *App, w, h int) []string {
 		split++
 	}
 	divider := split > 0 && split < len(es)
-	room := max(1, h-len(lines))
+	room := max(1, h-len(lines)-tagRows)
 	if divider {
 		room = max(1, room-1)
 	}
@@ -298,7 +299,14 @@ func (l *library) view(a *App, w, h int) []string {
 		}
 		lines = append(lines, l.row(a, tb, es[i], i == l.sc.cur))
 	}
-	return lines
+	for len(lines) < h-tagRows {
+		lines = append(lines, "")
+	}
+	var tags []string
+	if l.sc.cur < len(es) && es[l.sc.cur].model != nil {
+		tags = es[l.sc.cur].model.Meta.Tags
+	}
+	return append(lines, tagBlock(a, tags, w)...)
 }
 
 func (l *library) row(a *App, tb table, e entry, sel bool) string {
@@ -315,8 +323,15 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 	if m.Repo != "" {
 		author, _, _ = strings.Cut(m.Repo, "/")
 	}
+	if m.Meta.Gated {
+		name = append(name, t(" "+lockGlyph, sWarn))
+	}
 	if a.isRunning(m.Ref) {
 		name = append(name, t("  ● running", sGood))
+	}
+	updated := dim("")
+	if m.HasMeta && !m.Meta.Updated.IsZero() {
+		updated = dim(units.Ago(m.Meta.Updated))
 	}
 	params, ctx := "", ""
 	if m.Info != nil {
@@ -330,7 +345,7 @@ func (l *library) row(a *App, tb table, e entry, sel bool) string {
 	case gguf.NotLM:
 		kind, gpu = styled(label, sBad), nil
 	}
-	return tb.row(sel, dim(author), name, plain(params), dim(m.Quant), plain(units.Bytes(m.Size)), dim(ctx), kind, gpu)
+	return tb.row(sel, dim(author), name, plain(params), dim(m.Quant), plain(units.Bytes(m.Size)), dim(ctx), kind, gpu, updated)
 }
 
 func (a *App) openSheet(m store.Model, runNow bool) tea.Cmd {
