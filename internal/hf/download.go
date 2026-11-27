@@ -220,7 +220,30 @@ func (c *Client) fetch(ctx context.Context, dir, repo, sha string, f File, prog 
 	return linkSnapshot(blob, link)
 }
 
-func (c *Client) receive(ctx context.Context, url, part string, have int64, prog *meter) error {
+var errStalled = errors.New("the download stalled")
+
+type kick struct {
+	t *time.Timer
+	d time.Duration
+}
+
+func (k kick) Write(p []byte) (int, error) {
+	k.t.Reset(k.d)
+	return len(p), nil
+}
+
+func (c *Client) receive(ctx context.Context, url, part string, have int64, prog *meter) (err error) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	stall := c.Timeout()
+	timer := time.AfterFunc(stall, func() { cancel(fmt.Errorf("%w: nothing arrived for %s", errStalled, stall)) })
+	defer timer.Stop()
+	defer func() {
+		if cause := context.Cause(ctx); errors.Is(cause, errStalled) {
+			err = cause
+		}
+	}()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -251,7 +274,7 @@ func (c *Client) receive(ctx context.Context, url, part string, have int64, prog
 		return err
 	}
 	prog.skip(have)
-	_, err = io.Copy(out, io.TeeReader(resp.Body, prog))
+	_, err = io.Copy(out, io.TeeReader(resp.Body, io.MultiWriter(prog, kick{timer, stall})))
 	return errors.Join(err, out.Close())
 }
 

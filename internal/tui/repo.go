@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -35,9 +34,7 @@ func newRepoView(id string) *repoView { return &repoView{id: id, rec: -1} }
 func (r *repoView) load(a *App) tea.Cmd {
 	id := r.id
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer cancel()
-		repo, err := a.hub.Repo(ctx, id)
+		repo, err := a.hub.Repo(context.Background(), id)
 		return repoMsg{id, repo, err}
 	}
 }

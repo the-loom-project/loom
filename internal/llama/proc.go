@@ -110,6 +110,8 @@ func Start(id int, e Env, cfg Config, cmd Command, port int) (*Instance, error) 
 	return inst, nil
 }
 
+var health = &http.Client{Timeout: 2 * time.Second}
+
 func (i *Instance) waitReady() {
 	url := i.URL() + "/health"
 	for {
@@ -120,7 +122,7 @@ func (i *Instance) waitReady() {
 		if done {
 			return
 		}
-		resp, err := http.Get(url)
+		resp, err := health.Get(url)
 		if err != nil {
 			continue
 		}

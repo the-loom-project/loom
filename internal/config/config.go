@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 )
 
 type Language struct{ Code, Name string }
@@ -23,12 +24,13 @@ type Config struct {
 	HighlightTags  []string `json:"highlight_tags"`
 	HideLibrary    []string `json:"hide_library_columns"`
 	HideDiscover   []string `json:"hide_discover_columns"`
+	Timeout        int      `json:"timeout_seconds"`
 
 	path string
 }
 
 func Defaults() *Config {
-	return &Config{Language: "en", KeyHints: true, MemoryEstimate: true, Warnings: true, GreenPercent: 70, RedRAMPercent: 90}
+	return &Config{Language: "en", KeyHints: true, MemoryEstimate: true, Warnings: true, GreenPercent: 70, RedRAMPercent: 90, Timeout: 30}
 }
 
 // Reset puts every option back to its default and saves.
@@ -56,6 +58,9 @@ func Load() *Config {
 	if c.RedRAMPercent < 0 || c.RedRAMPercent > 200 {
 		c.RedRAMPercent = Defaults().RedRAMPercent
 	}
+	if c.Timeout < 5 || c.Timeout > 600 {
+		c.Timeout = Defaults().Timeout
+	}
 	if !slices.ContainsFunc(Languages, func(l Language) bool { return l.Code == c.Language }) {
 		c.Language = Languages[0].Code
 	}
@@ -79,6 +84,8 @@ func (c *Config) EditorCmd() []string {
 	}
 	return nil
 }
+
+func (c *Config) NetTimeout() time.Duration { return time.Duration(c.Timeout) * time.Second }
 
 func (c *Config) hidden(view string) *[]string {
 	if view == "library" {

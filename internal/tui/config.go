@@ -28,11 +28,11 @@ func toggle(group, label, help string, get func(*config.Config) *bool) opt {
 		set: func(c *config.Config, v string) error { *get(c) = v == "true"; return nil }}
 }
 
-func percent(group, label, help string, lo, hi int, get func(*config.Config) *int) opt {
+func number(group, label, help, unit string, lo, hi int, get func(*config.Config) *int) opt {
 	return opt{group: group, label: label, help: help, text: true,
-		get: func(c *config.Config) string { return strconv.Itoa(*get(c)) + "%" },
+		get: func(c *config.Config) string { return strconv.Itoa(*get(c)) + unit },
 		set: func(c *config.Config, v string) error {
-			n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(v), "%"))
+			n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(v), unit))
 			if err != nil || n < lo || n > hi {
 				return fmt.Errorf("a number from %d to %d", lo, hi)
 			}
@@ -71,8 +71,10 @@ func options() []opt {
 				return nil
 			}},
 
-		percent("Colors", "Green up to", "Sizes in Discover are green while at most this share of your GPU memory. Lower it to leave more room for the context window.", 1, 100, func(c *config.Config) *int { return &c.GreenPercent }),
-		percent("Colors", "Red beyond", "Sizes in Discover are red when bigger than your GPU memory plus this share of your system RAM, so the model can't be spread across both. Yellow is everything in between.", 0, 200, func(c *config.Config) *int { return &c.RedRAMPercent }),
+		number("Network", "Timeout", "How long loom waits for Hugging Face to answer, and how long a download may receive nothing before it fails. Raise it on a slow or flaky connection.", "s", 5, 600, func(c *config.Config) *int { return &c.Timeout }),
+
+		number("Colors", "Green up to", "Sizes in Discover are green while at most this share of your GPU memory. Lower it to leave more room for the context window.", "%", 1, 100, func(c *config.Config) *int { return &c.GreenPercent }),
+		number("Colors", "Red beyond", "Sizes in Discover are red when bigger than your GPU memory plus this share of your system RAM, so the model can't be spread across both. Yellow is everything in between.", "%", 0, 200, func(c *config.Config) *int { return &c.RedRAMPercent }),
 
 		columnPref("Library columns", "library", "author", "Author", "The user or organization that published the model."),
 		columnPref("Library columns", "library", "updated", "Updated", "When the model last changed on Hugging Face, or ↑ update when a newer version is available. Hidden on narrow terminals anyway."),
@@ -135,6 +137,11 @@ func (v *configView) display(a *App, p opt) string {
 	return cur
 }
 
+func (a *App) saveConfig() {
+	a.cfg.Save()
+	a.hub.SetTimeout(a.cfg.NetTimeout())
+}
+
 func (v *configView) cycle(a *App, p opt) {
 	if p.text || len(p.choices) < 2 {
 		return
@@ -146,7 +153,7 @@ func (v *configView) cycle(a *App, p opt) {
 		}
 	}
 	p.set(a.cfg, p.choices[(cur+1)%len(p.choices)].value)
-	a.cfg.Save()
+	a.saveConfig()
 }
 
 func (v *configView) update(a *App, msg tea.Msg) tea.Cmd {
@@ -162,7 +169,7 @@ func (v *configView) update(a *App, msg tea.Msg) tea.Cmd {
 				v.errText = "Needs " + err.Error()
 				return nil
 			}
-			a.cfg.Save()
+			a.saveConfig()
 			v.editing, v.errText = false, ""
 		case a.is(key, "back"):
 			v.editing, v.errText = false, ""
@@ -185,6 +192,7 @@ func (v *configView) update(a *App, msg tea.Msg) tea.Cmd {
 	case a.is(key, "reset"):
 		a.push(&confirm{heading: "Reset the config?", text: "Language, editor and everything shown or hidden go back to their defaults.", yes: func(a *App) tea.Cmd {
 			a.cfg.Reset()
+			a.hub.SetTimeout(a.cfg.NetTimeout())
 			a.say("Config reset to defaults")
 			return nil
 		}})

@@ -65,9 +65,7 @@ func newDiscover() *discover {
 
 func (d *discover) init(a *App) tea.Cmd {
 	return tea.Batch(d.search(a), func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		tasks, _ := a.hub.Tasks(ctx)
+		tasks, _ := a.hub.Tasks(context.Background())
 		return tasksMsg{tasks}
 	})
 }
@@ -83,9 +81,7 @@ func (d *discover) fetch(a *App) tea.Cmd {
 	d.loading = true
 	seq, q, f, url := d.seq, d.input.Value(), d.f, d.urls[d.page]
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer cancel()
-		res, next, err := a.hub.Search(ctx, q, f, url)
+		res, next, err := a.hub.Search(context.Background(), q, f, url)
 		return searchMsg{seq, q, res, next, err}
 	}
 }
@@ -130,9 +126,7 @@ func (d *discover) fetchSizes(a *App) tea.Cmd {
 		cmds = append(cmds, func() tea.Msg {
 			d.gate <- struct{}{}
 			defer func() { <-d.gate }()
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-			repo, err := a.hub.Repo(ctx, id)
+			repo, err := a.hub.Repo(context.Background(), id)
 			var r sizeRange
 			if err == nil {
 				for _, q := range repo.Quants() {

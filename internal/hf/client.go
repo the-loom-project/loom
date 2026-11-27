@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"loom/internal/gguf"
@@ -22,16 +23,23 @@ import (
 const base = "https://huggingface.co"
 
 type Client struct {
-	http  *http.Client
-	token string
+	http    *http.Client
+	token   string
+	timeout atomic.Int64
 
 	mu   sync.Mutex
 	busy map[string]chan struct{}
 }
 
-func New() *Client {
-	return &Client{http: &http.Client{}, token: findToken(), busy: map[string]chan struct{}{}}
+func New(timeout time.Duration) *Client {
+	c := &Client{http: &http.Client{}, token: findToken(), busy: map[string]chan struct{}{}}
+	c.SetTimeout(timeout)
+	return c
 }
+
+func (c *Client) SetTimeout(d time.Duration) { c.timeout.Store(int64(d)) }
+
+func (c *Client) Timeout() time.Duration { return time.Duration(c.timeout.Load()) }
 
 func (c *Client) HasToken() bool { return c.token != "" }
 
@@ -74,6 +82,8 @@ func (c *Client) get(ctx context.Context, u string, out any) error {
 var nextLinkRe = regexp.MustCompile(`<([^>]+)>;\s*rel="next"`)
 
 func (c *Client) getPage(ctx context.Context, u string, out any) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.Timeout())
+	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return "", err

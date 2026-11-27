@@ -43,7 +43,7 @@ Six views, switched with `←` `→`, `tab` or `1`-`6`. `?` lists all keys.
 | Activity | Running servers, with the selected server's log.                                                                       |
 | Doctor   | Health checks for llama.cpp, GPU, memory, disk and token. `r` rechecks.                                                              |
 | Profiles | Saved launch settings per model. `r` launches, `enter` edits, `e` renames.                                                           |
-| Config   | loom's own options: editor, key hints, warnings, table columns. `d` resets.                                                          |
+| Config   | loom's own options: editor, key hints, warnings, network timeout, table columns. `d` resets.                                                         |
 
 The launch sheet shows each choice next to the llama.cpp flag it produces. `s` saves its settings as a named profile, `p` loads one, and `loom run <model> --profile <name>` uses it. `E` edits the launch flags in your editor (changed or added lines become extra flags) (`$VISUAL`, `$EDITOR`, or set one in Config) in this terminal. `y` copies the llama.cpp command. Agent tools are off by default.
 

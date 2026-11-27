@@ -27,9 +27,7 @@ func (a *App) checkLatest() tea.Cmd {
 		cmds = append(cmds, func() tea.Msg {
 			a.gate <- struct{}{}
 			defer func() { <-a.gate }()
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-			repo, err := a.hub.Repo(ctx, id)
+			repo, err := a.hub.Repo(context.Background(), id)
 			if err != nil {
 				repo = nil
 			}

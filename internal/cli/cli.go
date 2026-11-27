@@ -25,7 +25,8 @@ import (
 )
 
 func Main(args []string) int {
-	st, hub, profiles, km := store.Open(), hf.New(), llama.LoadProfiles(), keys.Load()
+	cfg := config.Load()
+	st, hub, profiles, km := store.Open(), hf.New(cfg.NetTimeout()), llama.LoadProfiles(), keys.Load()
 	var err error
 	cmd := ""
 	if len(args) > 0 {
@@ -37,7 +38,7 @@ func Main(args []string) int {
 	}
 	switch cmd {
 	case "":
-		err = tui.Run(st, hub, profiles, km, config.Load())
+		err = tui.Run(st, hub, profiles, km, cfg)
 	case "run":
 		err = run(st, hub, profiles, args)
 	case "pull":
@@ -157,9 +158,7 @@ func fetch(st *store.Store, hub *hf.Client, ref string) (store.Model, error) {
 	if !ok {
 		return store.Model{}, fmt.Errorf("%q is not a model name or owner/repo", ref)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	repo, err := hub.Repo(ctx, id)
-	cancel()
+	repo, err := hub.Repo(context.Background(), id)
 	if err != nil {
 		return store.Model{}, err
 	}
