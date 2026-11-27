@@ -11,6 +11,7 @@ import (
 	osexec "os/exec"
 	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"loom/internal/config"
@@ -339,7 +340,22 @@ func run(st *store.Store, hub *hf.Client, profiles *llama.Profiles, args []strin
 
 func foreground(c llama.Command) error {
 	signal.Ignore(os.Interrupt)
-	err := c.Exec().Run()
+	cmd := c.Exec()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	forward := make(chan os.Signal, 1)
+	signal.Notify(forward, syscall.SIGTERM, syscall.SIGHUP)
+	defer func() {
+		signal.Stop(forward)
+		close(forward)
+	}()
+	go func() {
+		for sig := range forward {
+			cmd.Process.Signal(sig)
+		}
+	}()
+	err := cmd.Wait()
 	var exit *osexec.ExitError
 	if errors.As(err, &exit) {
 		if code := exit.ExitCode(); code > 0 && code != 130 {
