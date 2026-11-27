@@ -121,7 +121,7 @@ func helpFor(cmd string) (string, bool) {
 			{"--tools", "let the model read/write files and run commands (dangerous)"},
 			{"--cpu", "don't use the GPU"},
 			{"--set <setting>=<value>", "any setting from the launch sheet; repeatable"},
-			{"-- <flags>", "everything after -- goes to llama.cpp unchanged"},
+			{"-- <flags>", "everything after -- goes to llama.cpp unchanged, instead of the saved extra flags"},
 		}))
 		b.WriteString(section("Settings for --set", settingRows()))
 		b.WriteString(examples(
