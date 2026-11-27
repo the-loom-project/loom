@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -15,7 +16,7 @@ type opt struct {
 	text               bool
 	choices            []option
 	get                func(*config.Config) string
-	set                func(*config.Config, string)
+	set                func(*config.Config, string) error
 }
 
 var shownHidden = []option{{"true", "Shown", ""}, {"false", "Hidden", ""}}
@@ -23,13 +24,26 @@ var shownHidden = []option{{"true", "Shown", ""}, {"false", "Hidden", ""}}
 func toggle(group, label, help string, get func(*config.Config) *bool) opt {
 	return opt{group: group, label: label, help: help, choices: shownHidden,
 		get: func(c *config.Config) string { return strconv.FormatBool(*get(c)) },
-		set: func(c *config.Config, v string) { *get(c) = v == "true" }}
+		set: func(c *config.Config, v string) error { *get(c) = v == "true"; return nil }}
+}
+
+func percent(group, label, help string, lo, hi int, get func(*config.Config) *int) opt {
+	return opt{group: group, label: label, help: help, text: true,
+		get: func(c *config.Config) string { return strconv.Itoa(*get(c)) + "%" },
+		set: func(c *config.Config, v string) error {
+			n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(v), "%"))
+			if err != nil || n < lo || n > hi {
+				return fmt.Errorf("a number from %d to %d", lo, hi)
+			}
+			*get(c) = n
+			return nil
+		}}
 }
 
 func columnPref(group, view, id, label, help string) opt {
 	return opt{group: group, label: label, help: help, choices: shownHidden,
 		get: func(c *config.Config) string { return strconv.FormatBool(!c.Hidden(view, id)) },
-		set: func(c *config.Config, v string) { c.SetHidden(view, id, v != "true") }}
+		set: func(c *config.Config, v string) error { c.SetHidden(view, id, v != "true"); return nil }}
 }
 
 func options() []opt {
@@ -39,14 +53,17 @@ func options() []opt {
 	}
 	return []opt{
 		{group: "General", label: "Language", help: "The language of the interface. English is the only one so far.", choices: langs,
-			get: func(c *config.Config) string { return c.Language }, set: func(c *config.Config, v string) { c.Language = v }},
+			get: func(c *config.Config) string { return c.Language }, set: func(c *config.Config, v string) error { c.Language = v; return nil }},
 		{group: "General", label: "Editor", text: true,
 			help: "The command that opens your extra llama.cpp flags (E in the launch sheet). It takes over this terminal while you edit, e.g. nvim. Empty uses $VISUAL, then $EDITOR, then vi.",
-			get:  func(c *config.Config) string { return c.Editor }, set: func(c *config.Config, v string) { c.Editor = strings.TrimSpace(v) }},
+			get:  func(c *config.Config) string { return c.Editor }, set: func(c *config.Config, v string) error { c.Editor = strings.TrimSpace(v); return nil }},
 
 		toggle("Show", "Key hints", "The line of keys at the bottom of the screen. ? still lists every key.", func(c *config.Config) *bool { return &c.KeyHints }),
 		toggle("Show", "Memory estimate", "The memory bar in the launch sheet: how much of your GPU the model and its context would use.", func(c *config.Config) *bool { return &c.MemoryEstimate }),
 		toggle("Show", "Warnings", "The ▲ notes in the launch sheet, such as a model that won't fit or a server open to the network.", func(c *config.Config) *bool { return &c.Warnings }),
+
+		percent("Colors", "Green up to", "Sizes in Discover are green while at most this share of your GPU memory. Lower it to leave more room for the context window.", 1, 100, func(c *config.Config) *int { return &c.GreenPercent }),
+		percent("Colors", "Red beyond", "Sizes in Discover are red when bigger than your GPU memory plus this share of your system RAM, so the model can't be spread across both. Yellow is everything in between.", 0, 200, func(c *config.Config) *int { return &c.RedRAMPercent }),
 
 		columnPref("Library columns", "library", "params", "Parameters", "How many billions of parameters the model has."),
 		columnPref("Library columns", "library", "quant", "Quantization", "How compressed the weights are (Q4_K_M, Q8_0, …). Hidden on narrow terminals anyway."),
@@ -56,12 +73,11 @@ func options() []opt {
 		columnPref("Library columns", "library", "gpu", "GPU fit", "Whether the model fits in your GPU's memory."),
 
 		columnPref("Discover columns", "discover", "params", "Parameters", "How many billions of parameters the model has."),
-		columnPref("Discover columns", "discover", "size", "Size", "The smallest and largest download of the model across its quantizations. Looked up for the rows on screen."),
-		columnPref("Discover columns", "discover", "downloaded", "Downloaded", "Which quantizations of the model you already have. Hidden on narrow terminals anyway."),
+		columnPref("Discover columns", "discover", "size", "Size", "The smallest and largest download of the model across its quantizations, colored by whether it fits your GPU. Looked up for the rows on screen."),
 		columnPref("Discover columns", "discover", "downloads", "Downloads", "How often it was downloaded from Hugging Face."),
 		columnPref("Discover columns", "discover", "likes", "Likes", "Its likes on Hugging Face."),
 		columnPref("Discover columns", "discover", "updated", "Updated", "When it was last changed. Hidden on narrow terminals anyway."),
-		columnPref("Discover columns", "discover", "features", "Features", "Vision, tools, reasoning and so on. Hidden on narrow terminals anyway."),
+		columnPref("Discover columns", "discover", "tags", "Tags", "The tags the Hub lists for the model. Hidden on narrow terminals anyway."),
 	}
 }
 
@@ -71,6 +87,7 @@ type configView struct {
 	editing bool
 	input   textinput.Model
 	off     int
+	errText string
 }
 
 func newConfigView() *configView {
@@ -127,11 +144,14 @@ func (v *configView) update(a *App, msg tea.Msg) tea.Cmd {
 	if v.editing {
 		switch {
 		case a.is(key, "confirm"):
-			p.set(a.cfg, v.input.Value())
+			if err := p.set(a.cfg, v.input.Value()); err != nil {
+				v.errText = "Needs " + err.Error()
+				return nil
+			}
 			a.cfg.Save()
-			v.editing = false
+			v.editing, v.errText = false, ""
 		case a.is(key, "back"):
-			v.editing = false
+			v.editing, v.errText = false, ""
 		default:
 			var cmd tea.Cmd
 			v.input, cmd = v.input.Update(msg)
@@ -199,6 +219,9 @@ func (v *configView) view(a *App, w, h int) []string {
 	foot := []string{"", sEdge.Render(strings.Repeat("─", w)), " " + sBold.Render(cur.label)}
 	for _, l := range wrap(cur.help, w-4) {
 		foot = append(foot, "  "+sDim.Render(l))
+	}
+	if v.errText != "" {
+		foot = append(foot, "", " "+sBad.Render(v.errText))
 	}
 	foot = append(foot, "  "+sDim.Render("Saved to "+home(config.Path())+" as you change it."))
 	room := max(3, h-1-len(foot))

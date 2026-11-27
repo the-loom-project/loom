@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -37,22 +38,7 @@ type discover struct {
 	winTo    int
 }
 
-// sizeRange is the smallest and largest quantization of a repo.
 type sizeRange struct{ min, max int64 }
-
-func (s sizeRange) String() string {
-	lo, hi := units.Bytes(s.min), units.Bytes(s.max)
-	switch {
-	case s.max == 0:
-		return ""
-	case lo == hi:
-		return lo
-	}
-	if unit := hi[strings.LastIndex(hi, " "):]; strings.HasSuffix(lo, unit) {
-		lo = strings.TrimSuffix(lo, unit)
-	}
-	return lo + "–" + hi
-}
 
 type (
 	searchMsg struct {
@@ -178,6 +164,9 @@ func (d *discover) handle(a *App, msg tea.Msg) tea.Cmd {
 			d.urls = d.urls[:d.page+1]
 			if msg.next != "" {
 				d.urls = append(d.urls, msg.next)
+			}
+			for i := range msg.res {
+				slices.Sort(msg.res[i].Tags)
 			}
 			d.results = msg.res
 			d.sc = scroller{}
@@ -406,12 +395,11 @@ func (d *discover) view(a *App, w, h int) []string {
 	tb := newTable(w, hideColumns([]column{
 		{id: "name", title: "  NAME"},
 		{id: "params", title: "PARAMS", w: 8, right: true},
-		{id: "size", title: "SIZE", w: 13, right: true, min: 80},
+		{id: "size", title: "SIZE", w: 15, right: true, min: 80},
 		{id: "downloads", title: "DOWNLOADS", w: 11, right: true},
 		{id: "likes", title: "LIKES", w: 7, right: true},
 		{id: "updated", title: "UPDATED", w: 9, min: 90},
-		{id: "downloaded", title: "DOWNLOADED", w: 16, min: 110},
-		{id: "features", title: "FEATURES", w: 18, min: 100},
+		{id: "tags", title: "TAGS", w: 34, min: 100},
 	}, func(id string) bool { return a.cfg.Hidden("discover", id) })...)
 	lines = append(lines, tb.header())
 	from, to := d.sc.window(len(d.results), max(1, h-len(lines)))
@@ -423,19 +411,14 @@ func (d *discover) view(a *App, w, h int) []string {
 		if downloaded(a.models, r.ID) {
 			mark = t("✓ ", sGood)
 		}
-		feats := features(r)
-		if why := r.Runnable(); why != nil {
+		if r.Runnable() != nil {
 			nameStyle, num = sDim, dim
-			feats = styled(why.Short, sBad)
 		}
 		params := ""
 		if r.GGUF.Params > 0 {
 			params = gguf.Params(r.GGUF.Params)
 		}
-		size := num(d.sizes[r.ID].String())
-		if d.fetching[r.ID] {
-			size = dim("…")
-		}
+		size := d.sizeCell(a, r.ID, r.Runnable() != nil)
 		label := []seg{mark, t(owner+"/", sDim), t(name, nameStyle)}
 		if r.Gated {
 			label = append(label, t(" "+lockGlyph, sWarn))
@@ -447,8 +430,7 @@ func (d *discover) view(a *App, w, h int) []string {
 			num(units.Count(r.Downloads)),
 			num(units.Count(r.Likes)),
 			dim(units.Ago(r.Updated)),
-			styled(localQuants(a.models, r.ID), sGood),
-			feats,
+			dim(strings.Join(r.Tags, ", ")),
 		))
 	}
 	return lines
@@ -463,18 +445,32 @@ func (d *discover) findGGUF(a *App, r hf.Summary) tea.Cmd {
 	return d.search(a)
 }
 
-// localQuants lists the quantizations of a repo that are already downloaded.
-func localQuants(models []store.Model, repo string) string {
-	var out []string
-	for _, m := range models {
-		if m.Repo == repo {
-			out = append(out, m.Quant)
+func (d *discover) sizeCell(a *App, id string, dimmed bool) []seg {
+	if d.fetching[id] {
+		return dim("…")
+	}
+	s := d.sizes[id]
+	if s.max == 0 {
+		return nil
+	}
+	paint := func(n int64) seg {
+		st := a.fitColor(n)
+		if dimmed {
+			st = sDim
 		}
+		return t(fmt.Sprintf("%6s", compactBytes(n)), st)
 	}
-	if len(out) == 0 {
-		return ""
+	if s.min == s.max {
+		return []seg{paint(s.max)}
 	}
-	return "✓ " + strings.Join(out, ", ")
+	return []seg{paint(s.min), t(" – ", sDim), paint(s.max)}
+}
+
+func compactBytes(n int64) string {
+	if n >= 1e10 {
+		return fmt.Sprintf("%.0f GB", float64(n)/1e9)
+	}
+	return units.Bytes(n)
 }
 
 func downloaded(models []store.Model, repo string) bool {
@@ -487,35 +483,6 @@ func downloaded(models []store.Model, repo string) bool {
 }
 
 const lockGlyph = ""
-
-func features(r hf.Summary) []seg {
-	var out []seg
-	add := func(s seg) {
-		if len(out) > 0 {
-			out = append(out, t(" ", sPlain))
-		}
-		out = append(out, s)
-	}
-	if r.Pipeline == "image-text-to-text" || hasTag(r, "image-text-to-text") {
-		add(t("vision", sAccent))
-	}
-	if hasTag(r, "moe") || hasTag(r, "mixture-of-experts") {
-		add(t("MoE", sWarn))
-	}
-	if r.Pipeline == "feature-extraction" || r.Pipeline == "sentence-similarity" || hasTag(r, "sentence-transformers") {
-		add(t("embedding", sFlag))
-	}
-	return out
-}
-
-func hasTag(r hf.Summary, tag string) bool {
-	for _, x := range r.Tags {
-		if x == tag {
-			return true
-		}
-	}
-	return false
-}
 
 func groupLabel(id string) string {
 	for _, g := range hf.Groups {

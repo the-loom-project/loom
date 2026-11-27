@@ -18,6 +18,8 @@ type Config struct {
 	KeyHints       bool     `json:"key_hints"`
 	MemoryEstimate bool     `json:"memory_estimate"`
 	Warnings       bool     `json:"warnings"`
+	GreenPercent   int      `json:"green_percent"`
+	RedRAMPercent  int      `json:"red_ram_percent"`
 	HideLibrary    []string `json:"hide_library_columns"`
 	HideDiscover   []string `json:"hide_discover_columns"`
 
@@ -25,7 +27,7 @@ type Config struct {
 }
 
 func Defaults() *Config {
-	return &Config{Language: "en", KeyHints: true, MemoryEstimate: true, Warnings: true}
+	return &Config{Language: "en", KeyHints: true, MemoryEstimate: true, Warnings: true, GreenPercent: 70, RedRAMPercent: 90}
 }
 
 // Reset puts every option back to its default and saves.
@@ -46,6 +48,12 @@ func Load() *Config {
 	c.path = Path()
 	if b, err := os.ReadFile(c.path); err == nil {
 		json.Unmarshal(b, c)
+	}
+	if c.GreenPercent < 1 || c.GreenPercent > 100 {
+		c.GreenPercent = Defaults().GreenPercent
+	}
+	if c.RedRAMPercent < 0 || c.RedRAMPercent > 200 {
+		c.RedRAMPercent = Defaults().RedRAMPercent
 	}
 	if !slices.ContainsFunc(Languages, func(l Language) bool { return l.Code == c.Language }) {
 		c.Language = Languages[0].Code

@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"loom/internal/gguf"
 	"loom/internal/hw"
 	"loom/internal/llama"
@@ -46,6 +48,20 @@ func summary(e llama.Env, c llama.Config) string {
 }
 
 func gpuFit(a *App, size int64) hw.Fit { return hw.Assess(size, a.hw.VRAM(""), a.hw.RAM) }
+
+func (a *App) fitColor(size int64) lipgloss.Style {
+	vram, ram := float64(a.hw.VRAM("")), float64(a.hw.RAM)
+	if vram == 0 {
+		return sPlain
+	}
+	switch {
+	case float64(size) <= vram*float64(a.cfg.GreenPercent)/100:
+		return sGood
+	case ram > 0 && float64(size) > vram+ram*float64(a.cfg.RedRAMPercent)/100:
+		return sBad
+	}
+	return sWarn
+}
 
 func fitSeg(f hw.Fit) []seg {
 	switch f {
