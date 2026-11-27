@@ -37,10 +37,8 @@ func complete(st *store.Store, profiles *llama.Profiles, args []string) {
 			}
 		}
 	case "settings":
-		for _, id := range settingIDs {
-			if s, ok := llama.SettingByID(id); ok {
-				fmt.Printf("%s=\t%s\n", id, s.Label)
-			}
+		for _, s := range llama.AllSettings {
+			fmt.Printf("%s=\t%s\n", s.ID, s.Label)
 		}
 	}
 }

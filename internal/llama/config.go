@@ -96,7 +96,7 @@ func (c Config) LoomArgs(e Env, base Config, profile string) []string {
 	if profile != "" {
 		out = append(out, "--profile", profile)
 	}
-	for _, st := range allSettings {
+	for _, st := range AllSettings {
 		if st.ID == "extra" || st.Get(c) == st.Get(d) || !st.IsVisible(e, c) {
 			continue
 		}

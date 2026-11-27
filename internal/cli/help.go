@@ -157,11 +157,7 @@ func helpFor(cmd string) (string, bool) {
 
 func settingRows() []helpRow {
 	var rows []helpRow
-	for _, id := range settingIDs {
-		st, ok := llama.SettingByID(id)
-		if !ok {
-			continue
-		}
+	for _, st := range llama.AllSettings {
 		vals := "<text>"
 		if !st.Text {
 			var v []string
@@ -173,12 +169,10 @@ func settingRows() []helpRow {
 				vals = "<number>"
 			}
 		}
-		if over, ok := map[string]string{"device": "<id>", "port": "<port>", "context": "auto|<tokens>"}[id]; ok {
+		if over, ok := map[string]string{"device": "<id>", "port": "<port>", "context": "auto|<tokens>"}[st.ID]; ok {
 			vals = over
 		}
-		rows = append(rows, helpRow{id + "=" + vals, st.Label})
+		rows = append(rows, helpRow{st.ID + "=" + vals, st.Label})
 	}
 	return rows
 }
-
-var settingIDs = []string{"mode", "context", "offload", "device", "experts", "vision", "listen", "port", "tools", "parallel", "kv", "flash", "threads", "extra"}

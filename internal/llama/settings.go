@@ -30,7 +30,7 @@ func (s Setting) IsVisible(e Env, c Config) bool { return s.Visible == nil || s.
 
 func Settings(e Env, c Config) []Setting {
 	var out []Setting
-	for _, s := range allSettings {
+	for _, s := range AllSettings {
 		if s.IsVisible(e, c) {
 			out = append(out, s)
 		}
@@ -79,7 +79,7 @@ func (s Setting) HelpFor(e Env, c Config) string {
 func serverOnly(_ Env, c Config) bool { return c.Mode == Serve }
 func gpuOnly(_ Env, c Config) bool    { return c.Offload != "cpu" }
 
-var allSettings = []Setting{
+var AllSettings = []Setting{
 	{
 		ID: "mode", Group: "Run", Label: "Run as",
 		Help: "How you talk to the model.",
@@ -278,7 +278,7 @@ var allSettings = []Setting{
 }
 
 func SettingByID(id string) (Setting, bool) {
-	for _, s := range allSettings {
+	for _, s := range AllSettings {
 		if s.ID == id {
 			return s, true
 		}
