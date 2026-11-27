@@ -374,8 +374,7 @@ func (s *sheet) left(a *App, w, h int, stacked bool) []string {
 	var rows []string
 	selRow := 0
 	group := ""
-	const labelW = 20
-	valW := 22
+	const labelW, valW = 20, 22
 	for i, st := range list {
 		if st.Group != group {
 			group = st.Group
@@ -395,7 +394,7 @@ func (s *sheet) left(a *App, w, h int, stacked bool) []string {
 		case i == s.sel:
 			cell := val
 			if !st.Text {
-				cell = "‹ " + val + " ›"
+				cell = "‹ " + clip(val, valW-4) + " ›"
 			}
 			line = sPlain.Background(cSel).Bold(true).Render(" "+fit(label, labelW)+" "+fit(cell, valW)) + sPlain.Background(cSel).Render(strings.Repeat(" ", max(0, w-labelW-valW-3)))
 		default:
