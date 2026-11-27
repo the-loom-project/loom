@@ -154,11 +154,11 @@ func (r *repoView) body(a *App, w, h int) []string {
 		case i == r.rec:
 			note = append([]seg{t("★ recommended  ", sAccent)}, note...)
 		}
-		lines = append(lines, tb.row(i == r.sc.cur, plain(q.Name), plain(units.Bytes(q.Size)), fitSeg(hw.Assess(q.Size, vram, a.hw.RAM)), note))
+		lines = append(lines, tb.row(i == r.sc.cur, plain(q.Label()), plain(units.Bytes(q.Size)), fitSeg(hw.Assess(q.Size, vram, a.hw.RAM)), note))
 	}
 
 	q := r.quants[r.sc.cur]
-	detail := fmt.Sprintf("%s · %s", q.Name, units.Bytes(q.Size))
+	detail := fmt.Sprintf("%s · %s", q.Label(), units.Bytes(q.Size))
 	if len(q.Files) > 1 {
 		detail += fmt.Sprintf(" in %d files", len(q.Files))
 	}

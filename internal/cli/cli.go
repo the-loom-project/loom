@@ -226,7 +226,7 @@ func printQuants(id string, quants []hf.Quant, rec int, h hw.Hardware) {
 		if i == rec {
 			mark = "  ← recommended"
 		}
-		fmt.Printf("  %-14s %8s  %-14s %s%s\n", q.Name, units.Bytes(q.Size), hw.Assess(q.Size, h.VRAM(""), h.RAM).Label(), gguf.QuantNote(q.Name), mark)
+		fmt.Printf("  %-14s %8s  %-14s %s%s\n", q.Label(), units.Bytes(q.Size), hw.Assess(q.Size, h.VRAM(""), h.RAM).Label(), gguf.QuantNote(q.Name), mark)
 	}
 	fmt.Println()
 }

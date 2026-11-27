@@ -1,6 +1,7 @@
 package hf
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -288,6 +289,8 @@ type Quant struct {
 	Files []File
 }
 
+func (q Quant) Label() string { return cmp.Or(q.Name, "?") }
+
 func (r *Repo) Quants() []Quant {
 	by := map[string]*Quant{}
 	for _, f := range r.Files {
@@ -295,9 +298,6 @@ func (r *Repo) Quants() []Quant {
 			continue
 		}
 		name := gguf.QuantOf(f.Path)
-		if name == "" {
-			name = "?"
-		}
 		q := by[name]
 		if q == nil {
 			q = &Quant{Name: name}
