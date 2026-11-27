@@ -176,7 +176,7 @@ func (l *library) update(a *App, msg tea.Msg) tea.Cmd {
 	case e.dl != nil:
 		switch {
 		case a.is(key, "delete"):
-			a.dropDownload(e.dl)
+			a.askDrop(e.dl)
 		case a.is(key, "pause"), a.is(key, "run", "update") && !e.dl.active():
 			if e.dl.active() {
 				a.pauseDownload(e.dl)

@@ -40,10 +40,16 @@ type download struct {
 	removed bool
 }
 
-type dlDoneMsg struct {
-	d   *download
-	err error
-}
+type (
+	dlDoneMsg struct {
+		d   *download
+		err error
+	}
+	discardMsg struct {
+		d   *download
+		err error
+	}
+)
 
 func (d *download) set(p hf.Progress) { d.mu.Lock(); d.prog = p; d.mu.Unlock() }
 
@@ -159,14 +165,38 @@ func (a *App) downloadDone(msg dlDoneMsg) tea.Cmd {
 	return a.rescan()
 }
 
-func (a *App) dropDownload(d *download) {
+func (a *App) askDrop(d *download) {
+	p, _, _ := d.snapshot()
+	a.push(&confirm{
+		heading: fmt.Sprintf("Cancel %s:%s?", d.repo, d.quant),
+		text:    fmt.Sprintf("The %s downloaded so far is deleted.", units.Bytes(p.Done)),
+		yes:     func(a *App) tea.Cmd { return a.dropDownload(d) },
+	})
+}
+
+func (a *App) dropDownload(d *download) tea.Cmd {
 	d.mu.Lock()
 	d.removed = true
 	d.mu.Unlock()
-	if d.active() {
-		d.cancel()
-	}
+	d.cancel()
 	a.downloads = without(a.downloads, d)
+	alone := !a.downloading(d.repo)
+	return func() tea.Msg {
+		err := a.hub.Discard(d.hub, d.repo, d.files)
+		if alone {
+			err = errors.Join(err, hf.Clean(d.hub, d.repo))
+		}
+		return discardMsg{d, err}
+	}
+}
+
+func (a *App) discarded(msg discardMsg) tea.Cmd {
+	if msg.err != nil {
+		a.complain("Cancelled %s:%s, but removing its files failed: %v", msg.d.repo, msg.d.quant, msg.err)
+	} else {
+		a.say("Cancelled %s:%s and removed its files", msg.d.repo, msg.d.quant)
+	}
+	return a.rescan()
 }
 
 // downloadRow is a download in the Library table.

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -69,6 +70,32 @@ func carryOver(dir, sha string) {
 		}
 		return nil
 	})
+}
+
+func (c *Client) Discard(hub, repo string, files []File) error {
+	dir := RepoDir(hub, repo)
+	var errs []error
+	for _, f := range files {
+		blob := filepath.Join(dir, "blobs", f.BlobID)
+		unlock, _ := c.lock(context.Background(), blob)
+		if err := os.Remove(blob + ".incomplete"); !errors.Is(err, fs.ErrNotExist) {
+			errs = append(errs, err)
+		}
+		unlock()
+	}
+	return errors.Join(errs...)
+}
+
+func Clean(hub, repo string) error {
+	dir := RepoDir(hub, repo)
+	if _, err := os.Stat(filepath.Join(dir, "refs", "main")); !errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	parts, _ := filepath.Glob(filepath.Join(dir, "blobs", "*.incomplete"))
+	if len(parts) > 0 {
+		return nil
+	}
+	return os.RemoveAll(dir)
 }
 
 func Prune(hub, repo, keep string) error {

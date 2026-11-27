@@ -182,6 +182,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case dlDoneMsg:
 		return a, a.downloadDone(msg)
+	case discardMsg:
+		return a, a.discarded(msg)
 	case scanMsg:
 		a.models, a.others, a.scanned = msg.models, msg.others, true
 		return a, a.checkLatest()
