@@ -146,18 +146,18 @@ func ask(q string) bool {
 var errAmbiguous = errors.New("is ambiguous")
 
 func resolve(models []store.Model, q string) (store.Model, error) {
-	m, candidates := store.Find(models, q)
-	switch {
-	case m.Path != "":
-		return m, nil
-	case len(candidates) == 0:
-		return m, fmt.Errorf("no downloaded model matches %q (see `loom ls`)", q)
+	matches := store.Find(models, q)
+	switch len(matches) {
+	case 1:
+		return matches[0], nil
+	case 0:
+		return store.Model{}, fmt.Errorf("no downloaded model matches %q (see `loom ls`)", q)
 	}
 	var names []string
-	for _, c := range candidates {
-		names = append(names, c.Ref)
+	for _, m := range matches {
+		names = append(names, m.Ref)
 	}
-	return m, fmt.Errorf("%q %w: %s", q, errAmbiguous, strings.Join(names, ", "))
+	return store.Model{}, fmt.Errorf("%q %w: %s", q, errAmbiguous, strings.Join(names, ", "))
 }
 
 func pull(st *store.Store, hub *hf.Client, args []string) error {

@@ -281,19 +281,21 @@ func partial(dir string) bool {
 	return found
 }
 
-func Find(models []Model, q string) (Model, []Model) {
+func Find(models []Model, q string) []Model {
 	q = strings.ToLower(q)
-	var partial []Model
+	var named, partial []Model
 	for _, m := range models {
-		if strings.ToLower(m.Ref) == q || strings.ToLower(m.Name()) == q {
-			return m, nil
-		}
-		if strings.Contains(strings.ToLower(m.Ref), q) {
+		switch {
+		case strings.ToLower(m.Ref) == q:
+			return []Model{m}
+		case strings.ToLower(m.Name()) == q:
+			named = append(named, m)
+		case strings.Contains(strings.ToLower(m.Ref), q):
 			partial = append(partial, m)
 		}
 	}
-	if len(partial) == 1 {
-		return partial[0], nil
+	if len(named) > 0 {
+		return named
 	}
-	return Model{}, partial
+	return partial
 }
