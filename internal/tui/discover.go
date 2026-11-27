@@ -28,8 +28,7 @@ type discover struct {
 	seq     int
 
 	tasks []hf.Task
-	task  hf.Task
-	all   bool
+	f     hf.Filters
 
 	sizes    map[string]sizeRange
 	fetching map[string]bool
@@ -74,7 +73,7 @@ func newDiscover() *discover {
 	ti := textinput.New()
 	ti.Prompt = ""
 	ti.Placeholder = "model name, owner/repo or a huggingface.co link"
-	return &discover{input: ti, loading: true, sizes: map[string]sizeRange{}, fetching: map[string]bool{}, gate: make(chan struct{}, 4)}
+	return &discover{input: ti, loading: true, f: hf.DefaultFilters(), sizes: map[string]sizeRange{}, fetching: map[string]bool{}, gate: make(chan struct{}, 4)}
 }
 
 func (d *discover) init(a *App) tea.Cmd {
@@ -90,11 +89,11 @@ func (d *discover) typing() bool { return d.typingQ || d.sort.picking }
 
 func (d *discover) search(a *App) tea.Cmd {
 	d.loading = true
-	seq, q, task, all := d.seq, d.input.Value(), d.task.ID, d.all
+	seq, q, f := d.seq, d.input.Value(), d.f
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		res, err := a.hub.Search(ctx, q, task, all)
+		res, err := a.hub.Search(ctx, q, f)
 		return searchMsg{seq, q, res, err}
 	}
 }
@@ -116,7 +115,7 @@ func (d *discover) hints(a *App) string {
 	if d.sort.picking {
 		return d.sort.hints(a)
 	}
-	return a.hints("confirm", "quants & download", "search", "search", "sort", "sort", "filter", "task", "unsupported", "can't-run models", "help", "all keys")
+	return a.hints("confirm", "quants & download", "search", "search", "sort", "sort", "filter", "filters", "unsupported", "non-GGUF models", "help", "all keys")
 }
 
 func (d *discover) update(a *App, msg tea.Msg) tea.Cmd {
@@ -189,6 +188,38 @@ func (d *discover) handle(a *App, msg tea.Msg) tea.Cmd {
 	return nil
 }
 
+// filterSummary describes the filters that differ from the defaults.
+func filterSummary(f hf.Filters) []string {
+	var parts []string
+	if f.Task.ID != "" {
+		parts = append(parts, sDim.Render(groupLabel(f.Task.Group)+" › ")+sBold.Render(f.Task.Label))
+	}
+	if f.Author != "" {
+		parts = append(parts, sDim.Render("by ")+sBold.Render(f.Author))
+	}
+	switch {
+	case f.MinParams != "" && f.MaxParams != "":
+		parts = append(parts, sBold.Render(f.MinParams+"–"+f.MaxParams)+sDim.Render(" parameters"))
+	case f.MinParams != "":
+		parts = append(parts, sBold.Render("≥"+f.MinParams)+sDim.Render(" parameters"))
+	case f.MaxParams != "":
+		parts = append(parts, sBold.Render("≤"+f.MaxParams)+sDim.Render(" parameters"))
+	}
+	if f.Tag != "" {
+		parts = append(parts, sDim.Render("tag ")+sBold.Render(f.Tag))
+	}
+	switch app := f.App; {
+	case app == "":
+		parts = append(parts, sDim.Render("any app"))
+	case app != hf.DefaultFilters().App:
+		parts = append(parts, sDim.Render("app ")+sBold.Render(app))
+	}
+	if f.All {
+		parts = append(parts, sBold.Render("including non-GGUF")+sDim.Render(" (marked in red if llama.cpp can't run them)"))
+	}
+	return parts
+}
+
 func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 	n := len(d.results)
 	if d.sort.key(a, msg, discoverSort) {
@@ -253,15 +284,15 @@ func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 			a.complain("The Hub's task list isn't available (offline?)")
 			return nil
 		}
-		a.push(newFilterView(d.tasks, d.task))
+		a.push(newFilterForm(d.f, d.tasks))
 	case a.is(msg, "unsupported"):
-		d.all = !d.all
+		d.f.All = !d.f.All
 		d.seq++
 		return d.search(a)
 	case a.is(msg, "back"):
-		if d.input.Value() != "" || d.task.ID != "" {
+		if d.input.Value() != "" || d.f != hf.DefaultFilters() {
 			d.input.SetValue("")
-			d.task = hf.Task{}
+			d.f = hf.DefaultFilters()
 			d.seq++
 			return d.search(a)
 		}
@@ -277,7 +308,7 @@ func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 func (d *discover) find(a *App, repo string) tea.Cmd {
 	_, name, _ := strings.Cut(repo, "/")
 	d.input.SetValue(name)
-	d.all, d.task = false, hf.Task{}
+	d.f = hf.Filters{}
 	d.seq++
 	a.tab = tabDiscover
 	rv := newRepoView(repo)
@@ -313,11 +344,8 @@ func (d *discover) view(a *App, w, h int) []string {
 	if line, ok := searchLine(&d.input, d.typingQ, w); ok {
 		lines = append(lines, line)
 	}
-	if d.task.ID != "" {
-		lines = append(lines, filterLine(sDim.Render(groupLabel(d.task.Group)+" › ")+sBold.Render(d.task.Label)))
-	}
-	if d.all {
-		lines = append(lines, " "+sAccent.Render("all models")+"  "+sDim.Render("including ones llama.cpp can't run, marked in red · "+a.keys.Label("unsupported")+" to hide them"))
+	if parts := filterSummary(d.f); len(parts) > 0 {
+		lines = append(lines, filterLine(strings.Join(parts, sDim.Render(" · "))))
 	}
 	lines = append(lines, "")
 	titleRow := len(lines) - 1
@@ -329,15 +357,18 @@ func (d *discover) view(a *App, w, h int) []string {
 		return append(lines, " "+spin(a.tick)+sDim.Render(" Searching Hugging Face…"))
 	case len(d.results) == 0:
 		msg := "No GGUF models found. Try fewer words, or the model's family name."
-		if d.task.ID != "" {
-			msg = "No " + d.task.Label + " GGUF models match. Broaden the search, or change the filter."
+		if d.f != hf.DefaultFilters() {
+			msg = "No models match. Broaden the search, or change the filters (" + a.keys.Label("filter") + ")."
 		}
 		return append(lines, " "+sDim.Render(msg))
 	}
 
 	what := "GGUF models"
-	if d.task.ID != "" {
-		what = d.task.Label + " GGUF models"
+	if d.f.All {
+		what = "models"
+	}
+	if d.f.Task.ID != "" {
+		what = d.f.Task.Label + " " + what
 	}
 	title := "Trending " + what
 	if d.shown != "" {
@@ -399,7 +430,7 @@ func (d *discover) view(a *App, w, h int) []string {
 func (d *discover) findGGUF(a *App, r hf.Summary) tea.Cmd {
 	_, name, _ := strings.Cut(r.ID, "/")
 	d.input.SetValue(name)
-	d.all, d.task = false, hf.Task{}
+	d.f = hf.Filters{}
 	d.seq++
 	a.say("%s isn't GGUF, looking for GGUF versions of it", name)
 	return d.search(a)

@@ -14,10 +14,11 @@ type filterView struct {
 	cat    scroller
 	task   scroller
 	inTask bool
+	pick   func(hf.Task)
 }
 
-func newFilterView(tasks []hf.Task, current hf.Task) *filterView {
-	f := &filterView{byID: map[string][]hf.Task{}}
+func newFilterView(tasks []hf.Task, current hf.Task, pick func(hf.Task)) *filterView {
+	f := &filterView{byID: map[string][]hf.Task{}, pick: pick}
 	for _, t := range tasks {
 		f.byID[t.Group] = append(f.byID[t.Group], t)
 	}
@@ -60,9 +61,8 @@ func (f *filterView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		return f, nil
 	}
 	apply := func(t hf.Task) (popup, tea.Cmd) {
-		a.disc.task = t
-		a.disc.seq++
-		return nil, a.disc.search(a)
+		f.pick(t)
+		return nil, nil
 	}
 	move := func(d int) {
 		if f.inTask {

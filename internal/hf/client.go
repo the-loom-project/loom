@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -105,14 +106,67 @@ type Summary struct {
 	} `json:"gguf"`
 }
 
-func (c *Client) Search(ctx context.Context, query, task string, everything bool) ([]Summary, error) {
+// Filters narrow a search. The zero value lists everything; DefaultFilters is
+// what loom starts with.
+type Filters struct {
+	Task      Task
+	Author    string
+	Tag       string // tags separated by commas or spaces; a model needs all of them
+	App       string // only models the Hub lists as usable with this app
+	MinParams string // like 500M or 6B
+	MaxParams string
+	All       bool // include models that aren't GGUF
+}
+
+func DefaultFilters() Filters { return Filters{App: "llama.cpp"} }
+
+var paramsRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s*([kmbtKMBT]?)$`)
+
+// NormalizeParams turns "6", "6b" or "500 M" into "6B" or "500M"; a bare number
+// is billions. It returns "" for empty input.
+func NormalizeParams(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", nil
+	}
+	m := paramsRe.FindStringSubmatch(s)
+	if m == nil {
+		return "", fmt.Errorf("a size like 500M or 6B")
+	}
+	unit := strings.ToUpper(m[2])
+	if unit == "" {
+		unit = "B"
+	}
+	return m[1] + unit, nil
+}
+
+func (c *Client) Search(ctx context.Context, query string, f Filters) ([]Summary, error) {
 	q := url.Values{"limit": {"40"},
 		"expand[]": {"downloads", "likes", "lastModified", "tags", "pipeline_tag", "gated", "gguf"}}
-	if !everything {
-		q.Set("filter", "gguf")
+	if !f.All {
+		q.Add("filter", "gguf")
 	}
-	if task != "" {
-		q.Set("pipeline_tag", task)
+	for _, tag := range strings.FieldsFunc(f.Tag, func(r rune) bool { return r == ',' || r == ' ' }) {
+		q.Add("filter", tag)
+	}
+	if f.Task.ID != "" {
+		q.Set("pipeline_tag", f.Task.ID)
+	}
+	if f.Author != "" {
+		q.Set("author", f.Author)
+	}
+	if f.App != "" {
+		q.Set("apps", f.App)
+	}
+	if f.MinParams != "" || f.MaxParams != "" {
+		var bounds []string
+		if f.MinParams != "" {
+			bounds = append(bounds, "min:"+f.MinParams)
+		}
+		if f.MaxParams != "" {
+			bounds = append(bounds, "max:"+f.MaxParams)
+		}
+		q.Set("num_parameters", strings.Join(bounds, ","))
 	}
 	if strings.TrimSpace(query) == "" {
 		q.Set("sort", "trendingScore")
