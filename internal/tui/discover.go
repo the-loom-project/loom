@@ -305,7 +305,7 @@ func (d *discover) key(a *App, msg tea.KeyMsg) tea.Cmd {
 	case a.is(msg, "confirm"):
 		return d.open(a)
 	case a.is(msg, "open") && d.sc.cur < n:
-		openBrowser("https://huggingface.co/" + d.results[d.sc.cur].ID)
+		a.openBrowser("https://huggingface.co/" + d.results[d.sc.cur].ID)
 	}
 	return nil
 }

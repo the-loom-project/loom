@@ -79,7 +79,7 @@ func (r *repoView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		case a.is(msg, "page-down"):
 			r.sc.move(8, len(r.quants))
 		case a.is(msg, "open"):
-			openBrowser("https://huggingface.co/" + r.id)
+			a.openBrowser("https://huggingface.co/" + r.id)
 		case a.is(msg, "confirm"):
 			if r.repo != nil && r.repo.Runnable() != nil {
 				a.complain("llama.cpp can't run this model, so there's nothing to download")

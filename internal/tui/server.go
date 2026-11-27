@@ -38,7 +38,7 @@ func (v *serverView) update(a *App, msg tea.Msg) (popup, tea.Cmd) {
 		return nil, nil
 	case a.is(key, "open"):
 		if v.inst.Config.Mode == llama.Serve {
-			openBrowser(v.inst.URL())
+			a.openBrowser(v.inst.URL())
 		}
 	case a.is(key, "copy"):
 		a.copyCommand(v.inst.Command)

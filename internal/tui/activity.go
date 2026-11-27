@@ -63,7 +63,7 @@ func (v *activity) update(a *App, msg tea.Msg) tea.Cmd {
 			}
 		case a.is(msg, "open"):
 			if cur != nil && cur.Config.Mode == llama.Serve {
-				openBrowser(cur.URL())
+				a.openBrowser(cur.URL())
 			}
 		case a.is(msg, "log-up"):
 			if cur != nil {
@@ -180,4 +180,10 @@ func serverRow(a *App, tb table, s *llama.Instance, sel bool) string {
 	return tb.row(sel, state, name, dim(where+summary(llama.Env{Model: s.Model, HW: a.hw}, s.Config)))
 }
 
-func openBrowser(url string) { exec.Command("xdg-open", url).Start() }
+func (a *App) openBrowser(url string) {
+	cmd := exec.Command("xdg-open", url)
+	if a.failed(cmd.Start(), "Couldn't open the browser") {
+		return
+	}
+	go cmd.Wait()
+}
