@@ -201,31 +201,44 @@ func (a *App) discarded(msg discardMsg) tea.Cmd {
 	return a.rescan()
 }
 
-// downloadRow is a download in the Library table.
+// downloadColumns are the columns of the Library's downloads table. AUTHOR,
+// NAME and QUANT line up with the models table below it.
+func downloadColumns() []column {
+	return []column{
+		{id: "author", title: "AUTHOR", w: 18},
+		{id: "name", title: "NAME"},
+		{id: "quant", title: "QUANT", w: 10, min: 90},
+		{title: "STATUS", w: 9},
+		{title: "PROGRESS", w: 17},
+		{id: "size", title: "SIZE", w: 17, right: true},
+		{title: "SPEED", w: 9, right: true, min: 100},
+		{title: "ETA", w: 7, right: true, min: 80},
+	}
+}
+
+// downloadRow is a download in the Library's downloads table.
 func downloadRow(tb table, d *download, sel bool) string {
 	p, st, err := d.snapshot()
 	owner, repo, _ := strings.Cut(d.repo, "/")
 	name := []seg{t(repo, sPlain)}
-	size := dim(units.Bytes(p.Total))
+	status, tint := styled("↓ running", sAccent), sAccent
+	var speed, eta []seg
 	switch st {
 	case dlRunning:
-		frac := float64(p.Done) / float64(max(1, p.Total))
-		n := int(min(1, frac)*14 + 0.5)
-		info := ""
 		if p.Speed > 1 {
-			info = fmt.Sprintf("  %s/s", units.Bytes(int64(p.Speed)))
+			speed = plain(units.Bytes(int64(p.Speed)) + "/s")
 			if p.Total > p.Done {
-				info += "  ETA " + units.Duration(time.Duration(float64(p.Total-p.Done)/p.Speed*float64(time.Second)))
+				eta = plain(units.Duration(time.Duration(float64(p.Total-p.Done) / p.Speed * float64(time.Second))))
 			}
 		}
-		name = append(name, t(info, sDim))
-		return tb.row(sel, dim(owner), name, nil, dim(d.quant), size, nil, styled(fmt.Sprintf("↓ %d%%", pct(p)), sAccent),
-			[]seg{t(strings.Repeat("█", n), sAccent), t(strings.Repeat("░", 14-n), sDim)})
 	case dlPaused:
-		frac := float64(p.Done) / float64(max(1, p.Total))
-		n := int(min(1, frac)*14 + 0.5)
-		return tb.row(sel, dim(owner), name, nil, dim(d.quant), size, nil, styled(fmt.Sprintf("paused %d%%", pct(p)), sWarn),
-			[]seg{t(strings.Repeat("█", n), sWarn), t(strings.Repeat("░", 14-n), sDim)})
+		status, tint = styled("‖ paused", sWarn), sWarn
+	case dlFailed:
+		status, tint = styled("✗ failed", sBad), sBad
+		name = append(name, t("  "+err.Error(), sBad))
 	}
-	return tb.row(sel, dim(owner), name, nil, dim(d.quant), size, nil, styled("✗ failed", sBad), styled(err.Error(), sBad))
+	n := int(min(1, float64(p.Done)/float64(max(1, p.Total)))*12 + 0.5)
+	progress := []seg{t(strings.Repeat("█", n), tint), t(strings.Repeat("░", 12-n), sDim), t(fmt.Sprintf(" %3d%%", pct(p)), tint)}
+	size := []seg{t(units.Bytes(p.Done), sPlain), t(" / "+units.Bytes(p.Total), sDim)}
+	return tb.row(sel, dim(owner), name, dim(d.quant), status, progress, size, speed, eta)
 }

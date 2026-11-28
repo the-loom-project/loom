@@ -17,6 +17,8 @@ import (
 
 type library struct {
 	sc        scroller
+	dlWin     scroller
+	modelWin  scroller
 	query     textinput.Model
 	searching bool
 	kind      string
@@ -292,6 +294,7 @@ func (l *library) view(a *App, w, h int) []string {
 		}
 	}
 
+	hidden := func(id string) bool { return a.cfg.Hidden("library", id) }
 	tb := newTable(w, hideColumns([]column{
 		{id: "author", title: "AUTHOR", w: 18},
 		{id: "name", title: "NAME"},
@@ -302,42 +305,70 @@ func (l *library) view(a *App, w, h int) []string {
 		{id: "type", title: "TYPE", w: 12},
 		{id: "gpu", title: "GPU", w: 14},
 		{id: "updated", title: "UPDATED", w: 9, min: 100},
-	}, func(id string) bool { return a.cfg.Hidden("library", id) })...)
-	lines = append(lines, tb.header())
+	}, hidden)...)
 	es := l.entries(a)
 	if len(es) == 0 {
-		return append(lines, "", sDim.Render("  Nothing matches."))
+		return append(lines, tb.header(), "", sDim.Render("  Nothing matches."))
 	}
 	split := 0
 	for split < len(es) && es[split].dl != nil {
 		split++
 	}
-	divider := split > 0 && split < len(es)
-	room := max(1, h-len(lines)-tagRows)
-	if divider {
-		room = max(1, room-1)
+	dls, models := es[:split], es[split:]
+	l.sc.cur = min(l.sc.cur, len(es)-1)
+
+	// Downloads get their own table under their own heading, above the
+	// models, and each section scrolls on its own so both stay in view.
+	room := h - len(lines) - tagRows
+	if len(dls) > 0 {
+		room -= 2
 	}
-	from, to := l.sc.window(len(es), room)
-	for i := from; i < to; i++ {
-		if divider && i == split {
-			lines = append(lines, " "+sDim.Render("downloaded")+" "+sEdge.Render(strings.Repeat("─", max(0, w-13))))
+	if len(models) > 0 {
+		room--
+		if len(dls) > 0 {
+			room -= 3
 		}
-		lines = append(lines, l.row(a, tb, es[i], i == l.sc.cur))
+	}
+	room = max(2, room)
+	dlRoom := min(len(dls), room)
+	if len(models) > 0 {
+		dlRoom = min(len(dls), max(1, room/3))
+	}
+	if len(dls) > 0 {
+		dt := newTable(w, hideColumns(downloadColumns(), hidden)...)
+		lines = append(lines, " "+heading(fmt.Sprintf("Downloads  %d", len(dls)), w-2), dt.header())
+		if l.sc.cur < split {
+			l.dlWin.cur = l.sc.cur
+		}
+		from, to := l.dlWin.window(len(dls), max(1, dlRoom))
+		for i := from; i < to; i++ {
+			lines = append(lines, downloadRow(dt, dls[i].dl, i == l.sc.cur))
+		}
+	}
+	if len(models) > 0 {
+		if len(dls) > 0 {
+			lines = append(lines, "", " "+heading(fmt.Sprintf("Models  %d", len(models)), w-2))
+		}
+		lines = append(lines, tb.header())
+		if l.sc.cur >= split {
+			l.modelWin.cur = l.sc.cur - split
+		}
+		from, to := l.modelWin.window(len(models), max(1, room-dlRoom))
+		for i := from; i < to; i++ {
+			lines = append(lines, l.row(a, tb, models[i], split+i == l.sc.cur))
+		}
 	}
 	for len(lines) < h-tagRows {
 		lines = append(lines, "")
 	}
 	var tags []string
-	if l.sc.cur < len(es) && es[l.sc.cur].model != nil {
+	if es[l.sc.cur].model != nil {
 		tags = es[l.sc.cur].model.Meta.Tags
 	}
 	return append(lines, tagBlock(a, tags, w)...)
 }
 
 func (l *library) row(a *App, tb table, e entry, sel bool) string {
-	if e.dl != nil {
-		return downloadRow(tb, e.dl, sel)
-	}
 	if e.other != nil {
 		owner, repo, _ := strings.Cut(e.other.Repo, "/")
 		if e.other.Partial {
